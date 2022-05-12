@@ -52,6 +52,9 @@ import Core_IFC          :: *;
 import CPU_IFC           :: *;
 import CPU               :: *;
 
+import NOVA_Core_IFC     :: *;
+import NOVA_Core         :: *;
+
 import Fabric_2x3        :: *;
 
 import Near_Mem_IO_AXI4  :: *;
@@ -84,6 +87,9 @@ module mkCore (Core_IFC #(N_External_Interrupt_Sources));
 
    // The CPU
    CPU_IFC  cpu <- mkCPU;
+
+   // The NOVA Core
+   NOVA_Core_IFC  nova_core <- mkNOVA_Core;
 
    // A 2x3 fabric for connecting {CPU, Debug_Module} to {Fabric, Near_Mem_IO, PLIC}
    Fabric_2x3_IFC  fabric_2x3 <- mkFabric_2x3;
@@ -312,6 +318,8 @@ module mkCore (Core_IFC #(N_External_Interrupt_Sources));
    // Masters on the local 2x3 fabric
    mkConnection (cpu.dmem_master,  fabric_2x3.v_from_masters [cpu_dmem_master_num]);
    mkConnection (dm_master_local, fabric_2x3.v_from_masters [debug_module_sba_master_num]);
+
+   mkConnection (nova_core.mem_master,  fabric_2x3.v_from_masters [nova_master_num]);
 
    // Slaves on the local 2x3 fabric
    // default slave is taken out directly to the Core interface

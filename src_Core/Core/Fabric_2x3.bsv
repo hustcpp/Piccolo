@@ -26,12 +26,13 @@ import SoC_Map      :: *;
 // ----------------
 // Fabric port numbers for masters
 
-typedef 2  Num_Masters_2x3;
+typedef 3  Num_Masters_2x3;
 
 typedef Bit #(TLog #(Num_Masters_2x3))  Master_Num_2x3;
 
 Master_Num_2x3  cpu_dmem_master_num         = 0;
 Master_Num_2x3  debug_module_sba_master_num = 1;
+Master_Num_2x3  nova_master_num             = 2;
 
 // ----------------
 // Fabric port numbers for slaves

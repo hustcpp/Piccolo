@@ -32,7 +32,7 @@ SIM_EXE_FILE = exe_HW_sim
 .PHONY: simulator
 simulator:
 	@echo INFO: iVerilog linking start ...
-	bsc -verilog -vsim $(VSIM) -keep-fires \
+	bsc -verilog -vsim vcs -keep-fires \
 		$(RTL_GEN_DIRS) \
 		-p $(BSC_PATH) \
 		-e $(TOPMODULE) -o $(SIM_EXE_FILE) \
