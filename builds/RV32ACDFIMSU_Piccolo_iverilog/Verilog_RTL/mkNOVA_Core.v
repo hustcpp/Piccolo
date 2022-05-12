@@ -276,6 +276,9 @@ module mkNOVA_Core(CLK,
        mem_master_wlast,
        mem_master_wvalid;
 
+  // ports of submodule br_pred_cplx
+  wire br_pred_cplx$EN_bpq_intf_get;
+
   // ports of submodule master_xactor_f_rd_addr
   wire [96 : 0] master_xactor_f_rd_addr$D_IN, master_xactor_f_rd_addr$D_OUT;
   wire master_xactor_f_rd_addr$CLR,
@@ -427,6 +430,13 @@ module mkNOVA_Core(CLK,
   // value method mem_master_m_rready
   assign mem_master_rready = master_xactor_f_rd_data$FULL_N ;
 
+  // submodule br_pred_cplx
+  mkNOVA_BrPredCplx br_pred_cplx(.CLK(CLK),
+				 .RST_N(RST_N),
+				 .EN_bpq_intf_get(br_pred_cplx$EN_bpq_intf_get),
+				 .bpq_intf_get(),
+				 .RDY_bpq_intf_get());
+
   // submodule master_xactor_f_rd_addr
   FIFO2 #(.width(32'd97), .guarded(1'd1)) master_xactor_f_rd_addr(.RST(RST_N),
 								  .CLK(CLK),
@@ -481,6 +491,9 @@ module mkNOVA_Core(CLK,
 								 .D_OUT(),
 								 .FULL_N(master_xactor_f_wr_resp$FULL_N),
 								 .EMPTY_N());
+
+  // submodule br_pred_cplx
+  assign br_pred_cplx$EN_bpq_intf_get = 1'b0 ;
 
   // submodule master_xactor_f_rd_addr
   assign master_xactor_f_rd_addr$D_IN = 97'h0 ;

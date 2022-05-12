@@ -1,9 +1,12 @@
 
-package NOVA_Core;
+// ================================================================
+// Branch Prediction Complex
+
+package NOVA_BrPredCplx;
 // ================================================================
 // Exports
 
-export mkNOVA_Core;
+export mkNOVA_BrPredCplx;
 
 // ================================================================
 // BSV library imports
@@ -24,40 +27,25 @@ import Semi_FIFOF :: *;
 // ================================================================
 // Project imports
 
-import AXI4_Types :: *;
-
 import ISA_Decls :: *;
-
-import TV_Info   :: *;
-
 import CPU_Globals :: *;
-import Fabric_Defs  :: *;
 
-import NOVA_Decls              :: *;
-import NOVA_Core_IFC           :: *;
+import NOVA_Decls :: *;
 import NOVA_BrPredCplx_IFC     :: *;
-import NOVA_BrPredCplx         :: *;
 
 // ================================================================
-// Major States of CPU
+// Major States of BPC
 
 // ================================================================
 
 (* synthesize *)
-module mkNOVA_Core (NOVA_Core_IFC);
+module mkNOVA_BrPredCplx (NOVA_BrPredCplx_IFC);
 
-// ================================================================
-// mk Modules
+   // ----------------
+   // FIFOs
 
-  NOVA_BrPredCplx_IFC br_pred_cplx <- mkNOVA_BrPredCplx;
+   FIFOF #(BPC_BPQ_Data_t)  ifc_bpq_fifo <- mkFIFOF;
+   interface bpq_intf = toGet(ifc_bpq_fifo);
 
-  AXI4_Master_Xactor_IFC #(Wd_Id, Wd_Addr, Wd_Data, Wd_User) master_xactor <- mkAXI4_Master_Xactor;
-
-
-// ================================================================
-// Connect interfaces
-  interface mem_master = master_xactor.axi_side;
-
-
-endmodule: mkNOVA_Core
+endmodule: mkNOVA_BrPredCplx
 endpackage

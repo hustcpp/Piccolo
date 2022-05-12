@@ -803,7 +803,6 @@ module mkMMU_Cache(CLK,
   reg [31 : 0] v__h3893;
   reg [31 : 0] v__h32006;
   reg [31 : 0] v__h33445;
-  reg [31 : 0] v__h28801;
   reg [31 : 0] v__h3887;
   reg [31 : 0] v__h4255;
   reg [31 : 0] v__h4350;
@@ -832,6 +831,7 @@ module mkMMU_Cache(CLK,
   reg [31 : 0] v__h28202;
   reg [31 : 0] v__h28338;
   reg [31 : 0] v__h28619;
+  reg [31 : 0] v__h28801;
   reg [31 : 0] v__h28902;
   reg [31 : 0] v__h31047;
   reg [31 : 0] v__h31629;
@@ -3656,6 +3656,27 @@ module mkMMU_Cache(CLK,
     endcase
   end
   always@(rg_addr or
+	  result__h13745 or
+	  result__h13773 or result__h13801 or result__h13829)
+  begin
+    case (rg_addr[2:0])
+      3'h0:
+	  IF_rg_addr_9_BITS_2_TO_0_10_EQ_0x0_11_THEN_SEX_ETC___d549 =
+	      result__h13745;
+      3'h2:
+	  IF_rg_addr_9_BITS_2_TO_0_10_EQ_0x0_11_THEN_SEX_ETC___d549 =
+	      result__h13773;
+      3'h4:
+	  IF_rg_addr_9_BITS_2_TO_0_10_EQ_0x0_11_THEN_SEX_ETC___d549 =
+	      result__h13801;
+      3'h6:
+	  IF_rg_addr_9_BITS_2_TO_0_10_EQ_0x0_11_THEN_SEX_ETC___d549 =
+	      result__h13829;
+      default: IF_rg_addr_9_BITS_2_TO_0_10_EQ_0x0_11_THEN_SEX_ETC___d549 =
+		   64'd0;
+    endcase
+  end
+  always@(rg_addr or
 	  result__h13504 or
 	  result__h13532 or
 	  result__h13560 or
@@ -3688,27 +3709,6 @@ module mkMMU_Cache(CLK,
       3'h7:
 	  IF_rg_addr_9_BITS_2_TO_0_10_EQ_0x0_11_THEN_0_C_ETC___d537 =
 	      result__h13700;
-    endcase
-  end
-  always@(rg_addr or
-	  result__h13745 or
-	  result__h13773 or result__h13801 or result__h13829)
-  begin
-    case (rg_addr[2:0])
-      3'h0:
-	  IF_rg_addr_9_BITS_2_TO_0_10_EQ_0x0_11_THEN_SEX_ETC___d549 =
-	      result__h13745;
-      3'h2:
-	  IF_rg_addr_9_BITS_2_TO_0_10_EQ_0x0_11_THEN_SEX_ETC___d549 =
-	      result__h13773;
-      3'h4:
-	  IF_rg_addr_9_BITS_2_TO_0_10_EQ_0x0_11_THEN_SEX_ETC___d549 =
-	      result__h13801;
-      3'h6:
-	  IF_rg_addr_9_BITS_2_TO_0_10_EQ_0x0_11_THEN_SEX_ETC___d549 =
-	      result__h13829;
-      default: IF_rg_addr_9_BITS_2_TO_0_10_EQ_0x0_11_THEN_SEX_ETC___d549 =
-		   64'd0;
     endcase
   end
   always@(rg_addr or
