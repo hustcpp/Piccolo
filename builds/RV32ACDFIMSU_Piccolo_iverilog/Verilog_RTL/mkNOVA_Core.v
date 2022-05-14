@@ -277,7 +277,16 @@ module mkNOVA_Core(CLK,
        mem_master_wvalid;
 
   // ports of submodule br_pred_cplx
-  wire br_pred_cplx$EN_bpq_intf_get;
+  wire [92 : 0] br_pred_cplx$ifc_fbu_intf_put;
+  wire [13 : 0] br_pred_cplx$rob_excp_intf_put;
+  wire [5 : 0] br_pred_cplx$rob_cmt_intf_put;
+  wire br_pred_cplx$EN_exu_bcu_intfs_0_get,
+       br_pred_cplx$EN_ifc_bpq_intf_get,
+       br_pred_cplx$EN_ifc_brf_intf_get,
+       br_pred_cplx$EN_ifc_fbu_intf_put,
+       br_pred_cplx$EN_itb_flush_intf_put,
+       br_pred_cplx$EN_rob_cmt_intf_put,
+       br_pred_cplx$EN_rob_excp_intf_put;
 
   // ports of submodule master_xactor_f_rd_addr
   wire [96 : 0] master_xactor_f_rd_addr$D_IN, master_xactor_f_rd_addr$D_OUT;
@@ -433,9 +442,26 @@ module mkNOVA_Core(CLK,
   // submodule br_pred_cplx
   mkNOVA_BrPredCplx br_pred_cplx(.CLK(CLK),
 				 .RST_N(RST_N),
-				 .EN_bpq_intf_get(br_pred_cplx$EN_bpq_intf_get),
-				 .bpq_intf_get(),
-				 .RDY_bpq_intf_get());
+				 .ifc_fbu_intf_put(br_pred_cplx$ifc_fbu_intf_put),
+				 .rob_cmt_intf_put(br_pred_cplx$rob_cmt_intf_put),
+				 .rob_excp_intf_put(br_pred_cplx$rob_excp_intf_put),
+				 .EN_ifc_bpq_intf_get(br_pred_cplx$EN_ifc_bpq_intf_get),
+				 .EN_ifc_brf_intf_get(br_pred_cplx$EN_ifc_brf_intf_get),
+				 .EN_ifc_fbu_intf_put(br_pred_cplx$EN_ifc_fbu_intf_put),
+				 .EN_exu_bcu_intfs_0_get(br_pred_cplx$EN_exu_bcu_intfs_0_get),
+				 .EN_rob_cmt_intf_put(br_pred_cplx$EN_rob_cmt_intf_put),
+				 .EN_rob_excp_intf_put(br_pred_cplx$EN_rob_excp_intf_put),
+				 .EN_itb_flush_intf_put(br_pred_cplx$EN_itb_flush_intf_put),
+				 .ifc_bpq_intf_get(),
+				 .RDY_ifc_bpq_intf_get(),
+				 .ifc_brf_intf_get(),
+				 .RDY_ifc_brf_intf_get(),
+				 .RDY_ifc_fbu_intf_put(),
+				 .exu_bcu_intfs_0_get(),
+				 .RDY_exu_bcu_intfs_0_get(),
+				 .RDY_rob_cmt_intf_put(),
+				 .RDY_rob_excp_intf_put(),
+				 .RDY_itb_flush_intf_put());
 
   // submodule master_xactor_f_rd_addr
   FIFO2 #(.width(32'd97), .guarded(1'd1)) master_xactor_f_rd_addr(.RST(RST_N),
@@ -493,7 +519,16 @@ module mkNOVA_Core(CLK,
 								 .EMPTY_N());
 
   // submodule br_pred_cplx
-  assign br_pred_cplx$EN_bpq_intf_get = 1'b0 ;
+  assign br_pred_cplx$ifc_fbu_intf_put = 93'h0 ;
+  assign br_pred_cplx$rob_cmt_intf_put = 6'h0 ;
+  assign br_pred_cplx$rob_excp_intf_put = 14'h0 ;
+  assign br_pred_cplx$EN_ifc_bpq_intf_get = 1'b0 ;
+  assign br_pred_cplx$EN_ifc_brf_intf_get = 1'b0 ;
+  assign br_pred_cplx$EN_ifc_fbu_intf_put = 1'b0 ;
+  assign br_pred_cplx$EN_exu_bcu_intfs_0_get = 1'b0 ;
+  assign br_pred_cplx$EN_rob_cmt_intf_put = 1'b0 ;
+  assign br_pred_cplx$EN_rob_excp_intf_put = 1'b0 ;
+  assign br_pred_cplx$EN_itb_flush_intf_put = 1'b0 ;
 
   // submodule master_xactor_f_rd_addr
   assign master_xactor_f_rd_addr$D_IN = 97'h0 ;

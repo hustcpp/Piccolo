@@ -49,7 +49,7 @@ module mkNOVA_Core (NOVA_Core_IFC);
 // ================================================================
 // mk Modules
 
-  NOVA_BrPredCplx_IFC br_pred_cplx <- mkNOVA_BrPredCplx;
+  NOVA_BrPredCplx_IFC bp_cplx <- mkNOVA_BrPredCplx;
 
   AXI4_Master_Xactor_IFC #(Wd_Id, Wd_Addr, Wd_Data, Wd_User) master_xactor <- mkAXI4_Master_Xactor;
 

@@ -26,12 +26,46 @@ typedef `NOVA_CFG_BPC_PRED_W  NOVA_CFG_BPC_PRED_W;
 typedef 4  NOVA_CFG_BPC_PRED_W;
 `endif
 
-`ifdef NOVA_CFG_BPC_BR_ID_NUM
-typedef `NOVA_CFG_BPC_BR_ID_NUM  NOVA_CFG_BPC_BR_ID_NUM;
+`ifdef NOVA_CFG_BPC_BP_ID_NUM
+typedef `NOVA_CFG_BPC_BP_ID_NUM  NOVA_CFG_BPC_BP_ID_NUM;
 `else
-typedef 64  NOVA_CFG_BPC_BR_ID_NUM;
+typedef 64  NOVA_CFG_BPC_BP_ID_NUM;
 `endif
-typedef TLog#(NOVA_CFG_BPC_BR_ID_NUM)  NOVA_CFG_BPC_BR_ID_W;
-typedef  Bit #(NOVA_CFG_BPC_BR_ID_W)   BR_ID_t;
+typedef TLog#(NOVA_CFG_BPC_BP_ID_NUM)  NOVA_CFG_BPC_BP_ID_W;
+typedef  Bit #(NOVA_CFG_BPC_BP_ID_W)   BP_ID_t;
+
+`ifdef NOVA_CFG_BRU_N
+typedef `NOVA_CFG_BRU_N       NOVA_CFG_BRU_N;
+`else
+typedef 1  NOVA_CFG_BRU_N;
+`endif
+
+`ifdef NOVA_CFG_INST_TRACE_BUF_ENTRIES
+typedef `NOVA_CFG_INST_TRACE_BUF_ENTRIES NOVA_CFG_INST_TRACE_BUF_ENTRIES;
+`else
+typedef 64  NOVA_CFG_INST_TRACE_BUF_ENTRIES;
+`endif
+typedef TLog#(NOVA_CFG_INST_TRACE_BUF_ENTRIES) NOVA_CFG_INST_TRACE_BUF_ID_W;
+typedef  Bit #(NOVA_CFG_INST_TRACE_BUF_ID_W)   ITB_ID_t;
+
+`ifdef NOVA_CFG_L0_BTB_ENTRIES
+typedef `NOVA_CFG_L0_BTB_ENTRIES NOVA_CFG_L0_BTB_ENTRIES;
+`else
+typedef 1  NOVA_CFG_L0_BTB_ENTRIES;
+`endif
+typedef TLog#(NOVA_CFG_L0_BTB_ENTRIES) NOVA_CFG_L0_BTB_ID_W;
+typedef  Bit #(NOVA_CFG_L0_BTB_ID_W)   L0_BTB_ID_t;
+typedef  L0_BTB_ID_t                   ITB_BP_ID_t;
+
+typedef enum { 
+    BC_NO,      // not a branch or jump
+    BC_BRCC,    // conditional branch
+    BC_JMP,     // unconditional jump
+    BC_CALL,    // func call
+    BC_RET,     // func ret
+    BC_CONT,    // countinue in a loop
+    BC_IND,     // indirect target other than func ret
+    BC_LOOP     // Small loop
+   } Br_Class_t deriving (Bits, Eq, FShow);
 
 endpackage
