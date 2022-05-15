@@ -26,6 +26,14 @@ typedef `NOVA_CFG_BPC_PRED_W  NOVA_CFG_BPC_PRED_W;
 typedef 4  NOVA_CFG_BPC_PRED_W;
 `endif
 
+`ifdef NOVA_CFG_BPC_BPQ_ENTRIES
+typedef `NOVA_CFG_BPC_BPQ_ENTRIES  NOVA_CFG_BPC_BPQ_ENTRIES;
+`else
+typedef 8  NOVA_CFG_BPC_BPQ_ENTRIES;
+`endif
+typedef TLog#(NOVA_CFG_BPC_BPQ_ENTRIES)  NOVA_CFG_BPC_BPQ_ID_W;
+typedef  Bit #(NOVA_CFG_BPC_BPQ_ID_W)    BPQ_PTR_t;
+
 `ifdef NOVA_CFG_BPC_BP_ID_NUM
 typedef `NOVA_CFG_BPC_BP_ID_NUM  NOVA_CFG_BPC_BP_ID_NUM;
 `else
@@ -55,7 +63,13 @@ typedef 1  NOVA_CFG_L0_BTB_ENTRIES;
 `endif
 typedef TLog#(NOVA_CFG_L0_BTB_ENTRIES) NOVA_CFG_L0_BTB_ID_W;
 typedef  Bit #(NOVA_CFG_L0_BTB_ID_W)   L0_BTB_ID_t;
-typedef  L0_BTB_ID_t                   ITB_BP_ID_t;
+
+`ifdef NOVA_CFG_ITB_SIG_W
+typedef `NOVA_CFG_ITB_SIG_W NOVA_CFG_ITB_SIG_W;
+`else
+typedef 8  NOVA_CFG_ITB_SIG_W;
+`endif
+typedef  Bit #(NOVA_CFG_ITB_SIG_W)     ITB_BP_SIG_t;
 
 typedef enum { 
     BC_NO,      // not a branch or jump
