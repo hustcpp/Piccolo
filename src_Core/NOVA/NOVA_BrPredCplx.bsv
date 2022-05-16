@@ -343,6 +343,34 @@ module mkNOVA_BrPredCplx (NOVA_BrPredCplx_IFC);
   mkConnection(ctrl.bpq_flush_intf, toPut(bpq.handle_ctrl_flush));
   mkConnection(ctrl.bpq_enq_intf,   toPut(bpq.handle_ctrl_enq));
 
+  mkConnection(ctrl.l0_btb_client,  l0_btb.lkup_server);
+  mkConnection(ctrl.l1_btb_client,  l1_btb.lkup_server);
+  mkConnection(ctrl.l2_btb_client,  l2_btb.lkup_server);
+
+  mkConnection(ctrl.l0_bpp_client,  l0_bpp.lkup_server);
+  mkConnection(ctrl.l1_bpp_client,  l1_bpp.lkup_server);
+  mkConnection(ctrl.l2_bpp_client,  l2_bpp.lkup_server);
+
+  mkConnection(ctrl.l0_btb_updt_client,  l0_btb.updt_server);
+  mkConnection(ctrl.l1_btb_updt_client,  l1_btb.updt_server);
+  mkConnection(ctrl.l2_btb_updt_client,  l2_btb.updt_server);
+
+  mkConnection(ctrl.l0_bpp_updt_client,  l0_bpp.updt_server);
+  mkConnection(ctrl.l1_bpp_updt_client,  l1_bpp.updt_server);
+  mkConnection(ctrl.l2_bpp_updt_client,  l2_bpp.updt_server);
+
+  mkConnection(ctrl.ita_lkup_client,  ita.lkup_server);
+  mkConnection(ctrl.ita_alloc,  ita.alloc);
+  mkConnection(ctrl.ita_cmt,  ita.cmt);
+
+  mkConnection(ctrl.ita_lkup_client,  ita.lkup_server);
+  mkConnection(ctrl.ita_alloc,  ita.alloc);
+  mkConnection(ctrl.ita_cmt,  ita.cmt);
+
+  mkConnection(ctrl.loop_lkup_client,  loop.lkup_server);
+  mkConnection(ctrl.loop_alloc,  loop.alloc);
+  mkConnection(ctrl.loop_cmt,  loop.cmt);
+
   // ----------------
   // States
 

@@ -25,6 +25,15 @@ typedef `NOVA_CFG_BPC_PRED_W  NOVA_CFG_BPC_PRED_W;
 `else
 typedef 4  NOVA_CFG_BPC_PRED_W;
 `endif
+typedef TLog#(NOVA_CFG_BPC_PRED_W)       NOVA_CFG_BPC_PRED_ID_W;
+typedef  Bit #(NOVA_CFG_BPC_PRED_ID_W)   BPQ_PRED_POS_t;
+
+`ifdef NOVA_CFG_BPC_BHT_W
+typedef `NOVA_CFG_BPC_BHT_W  NOVA_CFG_BPC_BHT_W;
+`else
+typedef 32  NOVA_CFG_BPC_BHT_W;
+`endif
+typedef  Bit #(NOVA_CFG_BPC_BHT_W)              BPC_BHT_t;
 
 `ifdef NOVA_CFG_BPC_BPQ_ENTRIES
 typedef `NOVA_CFG_BPC_BPQ_ENTRIES  NOVA_CFG_BPC_BPQ_ENTRIES;
@@ -64,12 +73,43 @@ typedef 1  NOVA_CFG_L0_BTB_ENTRIES;
 typedef TLog#(NOVA_CFG_L0_BTB_ENTRIES) NOVA_CFG_L0_BTB_ID_W;
 typedef  Bit #(NOVA_CFG_L0_BTB_ID_W)   L0_BTB_ID_t;
 
-`ifdef NOVA_CFG_ITB_SIG_W
-typedef `NOVA_CFG_ITB_SIG_W NOVA_CFG_ITB_SIG_W;
+`ifdef NOVA_CFG_L1_BTB_ENTRIES
+typedef `NOVA_CFG_L1_BTB_ENTRIES NOVA_CFG_L1_BTB_ENTRIES;
 `else
-typedef 8  NOVA_CFG_ITB_SIG_W;
+typedef 1  NOVA_CFG_L1_BTB_ENTRIES;
 `endif
-typedef  Bit #(NOVA_CFG_ITB_SIG_W)     ITB_BP_SIG_t;
+typedef TLog#(NOVA_CFG_L1_BTB_ENTRIES) NOVA_CFG_L1_BTB_ID_W;
+typedef  Bit #(NOVA_CFG_L1_BTB_ID_W)   L1_BTB_ID_t;
+
+`ifdef NOVA_CFG_L2_BTB_ENTRIES
+typedef `NOVA_CFG_L2_BTB_ENTRIES NOVA_CFG_L2_BTB_ENTRIES;
+`else
+typedef 1  NOVA_CFG_L2_BTB_ENTRIES;
+`endif
+typedef TLog#(NOVA_CFG_L2_BTB_ENTRIES) NOVA_CFG_L2_BTB_ID_W;
+typedef  Bit #(NOVA_CFG_L2_BTB_ID_W)   L2_BTB_ID_t;
+
+`ifdef NOVA_CFG_L0_BPP_SIG_W
+typedef `NOVA_CFG_L0_BPP_SIG_W NOVA_CFG_L0_BPP_SIG_W;
+`else
+typedef 8  NOVA_CFG_L0_BPP_SIG_W;
+`endif
+typedef  Bit #(NOVA_CFG_L0_BPP_SIG_W)     L0_BPP_SIG_t;
+
+`ifdef NOVA_CFG_L1_BPP_SIG_W
+typedef `NOVA_CFG_L1_BPP_SIG_W NOVA_CFG_L1_BPP_SIG_W;
+`else
+typedef 8  NOVA_CFG_L1_BPP_SIG_W;
+`endif
+typedef  Bit #(NOVA_CFG_L1_BPP_SIG_W)     L1_BPP_SIG_t;
+
+`ifdef NOVA_CFG_L2_BPP_SIG_W
+typedef `NOVA_CFG_L2_BPP_SIG_W NOVA_CFG_L2_BPP_SIG_W;
+`else
+typedef 8  NOVA_CFG_L2_BPP_SIG_W;
+`endif
+typedef  Bit #(NOVA_CFG_L2_BPP_SIG_W)     L2_BPP_SIG_t;
+typedef  L0_BPP_SIG_t                     ITB_BP_SIG_t;
 
 typedef enum { 
     BC_NO,      // not a branch or jump
