@@ -75,6 +75,14 @@ typedef struct {
 deriving (FShow, Bits);
 
 typedef struct {
+  IFetch_HAddr_t        pc_h;
+  Vector#(NOVA_CFG_BPC_FETCH_W, Br_Class_t) 
+                        br_class;
+  PC_t                  target_pc;
+} BPC_L0_BTB_ENTRY_t
+deriving (FShow, Bits);
+
+typedef struct {
   IFetch_HAddr_t        pc_evn_h;
   IFetch_HAddr_t        pc_odd_h;
   IFetch_LAddr_t        pc_os;
@@ -176,6 +184,11 @@ typedef struct {
 } BPC_SPLBP_CMT_t
 deriving (FShow, Bits);
 
+typedef struct {
+  PC_t                  excp_base;
+} BPC_CFG_t
+deriving (FShow, Bits);
+
 // ================================================================
 // Interfaces
 
@@ -183,11 +196,11 @@ interface NOVA_BPC_BPQ_IFC;
   // branch flush to IFC
   interface Get #(IFC_BPC_BRF_Pack_t)  ifc_brf_intf;
   // handle branch flush from ctrl
-  method Action handle_ctrl_flush(IFC_BPC_BRF_Pack_t val);
+  interface Put #(IFC_BPC_BRF_Pack_t)  flush_intf;
   // handle enqueue from ctrl
-  method Action handle_ctrl_enq(IFC_BPC_BPQ_Pack_t val);
+  interface Put #(IFC_BPC_BPQ_Pack_t)  enq_intf;
   // handle dequeue from ifc
-  method ActionValue #(IFC_BPC_BPQ_Pack_t) handle_ifc_deq();
+  interface Get #(IFC_BPC_BPQ_Pack_t)  ifc_deq_intf;
 
 endinterface
 
@@ -298,6 +311,9 @@ interface NOVA_BrPredCplx_IFC;
 
   // inform ITB a L0 BTB is flushed
   interface Put #(BPC_IFC_ITBF_Pack_t) itb_flush_intf;
+  
+  // external configuration
+  interface Put #(BPC_CFG_t) bpc_cfg_intf;
 endinterface
 
 // ================================================================

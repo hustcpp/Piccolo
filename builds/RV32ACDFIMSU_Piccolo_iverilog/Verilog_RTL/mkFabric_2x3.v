@@ -2040,7 +2040,10 @@ module mkFabric_2x3(CLK,
   wire [5 : 0] MUX_fabric_xactors_from_masters_0_f_wr_resp$enq_1__VAL_4,
 	       MUX_fabric_xactors_from_masters_1_f_wr_resp$enq_1__VAL_4,
 	       MUX_fabric_xactors_from_masters_2_f_wr_resp$enq_1__VAL_4;
-  wire MUX_fabric_xactors_to_slaves_0_f_wr_data$enq_1__SEL_1,
+  wire MUX_fabric_v_rg_r_beat_count_0$write_1__SEL_2,
+       MUX_fabric_v_rg_r_beat_count_1$write_1__SEL_2,
+       MUX_fabric_v_rg_r_beat_count_2$write_1__SEL_2,
+       MUX_fabric_xactors_to_slaves_0_f_wr_data$enq_1__SEL_1,
        MUX_fabric_xactors_to_slaves_0_f_wr_data$enq_1__SEL_2,
        MUX_fabric_xactors_to_slaves_0_f_wr_data$enq_1__SEL_3,
        MUX_fabric_xactors_to_slaves_1_f_wr_data$enq_1__SEL_1,
@@ -3957,36 +3960,21 @@ module mkFabric_2x3(CLK,
 
   // rule RL_fabric_rl_rd_resp_slave_to_master_6
   assign CAN_FIRE_RL_fabric_rl_rd_resp_slave_to_master_6 =
-	     fabric_v_f_rd_mis_0$EMPTY_N &&
-	     fabric_xactors_to_slaves_0_f_rd_data$EMPTY_N &&
-	     fabric_xactors_from_masters_2_f_rd_data$FULL_N &&
-	     fabric_v_f_rd_sjs_2$EMPTY_N &&
-	     fabric_v_f_rd_mis_0$D_OUT[9:8] == 2'd2 &&
-	     fabric_v_f_rd_sjs_2$D_OUT == 2'd0 ;
+	     MUX_fabric_v_rg_r_beat_count_0$write_1__SEL_2 ;
   assign WILL_FIRE_RL_fabric_rl_rd_resp_slave_to_master_6 =
-	     CAN_FIRE_RL_fabric_rl_rd_resp_slave_to_master_6 ;
+	     MUX_fabric_v_rg_r_beat_count_0$write_1__SEL_2 ;
 
   // rule RL_fabric_rl_rd_resp_slave_to_master_7
   assign CAN_FIRE_RL_fabric_rl_rd_resp_slave_to_master_7 =
-	     fabric_v_f_rd_mis_1$EMPTY_N &&
-	     fabric_xactors_to_slaves_1_f_rd_data$EMPTY_N &&
-	     fabric_xactors_from_masters_2_f_rd_data$FULL_N &&
-	     fabric_v_f_rd_sjs_2$EMPTY_N &&
-	     fabric_v_f_rd_mis_1$D_OUT[9:8] == 2'd2 &&
-	     fabric_v_f_rd_sjs_2$D_OUT == 2'd1 ;
+	     MUX_fabric_v_rg_r_beat_count_1$write_1__SEL_2 ;
   assign WILL_FIRE_RL_fabric_rl_rd_resp_slave_to_master_7 =
-	     CAN_FIRE_RL_fabric_rl_rd_resp_slave_to_master_7 ;
+	     MUX_fabric_v_rg_r_beat_count_1$write_1__SEL_2 ;
 
   // rule RL_fabric_rl_rd_resp_slave_to_master_8
   assign CAN_FIRE_RL_fabric_rl_rd_resp_slave_to_master_8 =
-	     fabric_v_f_rd_mis_2$EMPTY_N &&
-	     fabric_xactors_to_slaves_2_f_rd_data$EMPTY_N &&
-	     fabric_xactors_from_masters_2_f_rd_data$FULL_N &&
-	     fabric_v_f_rd_sjs_2$EMPTY_N &&
-	     fabric_v_f_rd_mis_2$D_OUT[9:8] == 2'd2 &&
-	     fabric_v_f_rd_sjs_2$D_OUT == 2'd2 ;
+	     MUX_fabric_v_rg_r_beat_count_2$write_1__SEL_2 ;
   assign WILL_FIRE_RL_fabric_rl_rd_resp_slave_to_master_8 =
-	     CAN_FIRE_RL_fabric_rl_rd_resp_slave_to_master_8 ;
+	     MUX_fabric_v_rg_r_beat_count_2$write_1__SEL_2 ;
 
   // rule RL_fabric_rl_rd_resp_err_to_master
   assign CAN_FIRE_RL_fabric_rl_rd_resp_err_to_master =
@@ -4020,6 +4008,27 @@ module mkFabric_2x3(CLK,
   assign WILL_FIRE_RL_fabric_rl_reset = fabric_rg_reset ;
 
   // inputs to muxes for submodule ports
+  assign MUX_fabric_v_rg_r_beat_count_0$write_1__SEL_2 =
+	     fabric_v_f_rd_mis_0$EMPTY_N &&
+	     fabric_xactors_to_slaves_0_f_rd_data$EMPTY_N &&
+	     fabric_xactors_from_masters_2_f_rd_data$FULL_N &&
+	     fabric_v_f_rd_sjs_2$EMPTY_N &&
+	     fabric_v_f_rd_mis_0$D_OUT[9:8] == 2'd2 &&
+	     fabric_v_f_rd_sjs_2$D_OUT == 2'd0 ;
+  assign MUX_fabric_v_rg_r_beat_count_1$write_1__SEL_2 =
+	     fabric_v_f_rd_mis_1$EMPTY_N &&
+	     fabric_xactors_to_slaves_1_f_rd_data$EMPTY_N &&
+	     fabric_xactors_from_masters_2_f_rd_data$FULL_N &&
+	     fabric_v_f_rd_sjs_2$EMPTY_N &&
+	     fabric_v_f_rd_mis_1$D_OUT[9:8] == 2'd2 &&
+	     fabric_v_f_rd_sjs_2$D_OUT == 2'd1 ;
+  assign MUX_fabric_v_rg_r_beat_count_2$write_1__SEL_2 =
+	     fabric_v_f_rd_mis_2$EMPTY_N &&
+	     fabric_xactors_to_slaves_2_f_rd_data$EMPTY_N &&
+	     fabric_xactors_from_masters_2_f_rd_data$FULL_N &&
+	     fabric_v_f_rd_sjs_2$EMPTY_N &&
+	     fabric_v_f_rd_mis_2$D_OUT[9:8] == 2'd2 &&
+	     fabric_v_f_rd_sjs_2$D_OUT == 2'd2 ;
   assign MUX_fabric_xactors_to_slaves_0_f_wr_data$enq_1__SEL_1 =
 	     WILL_FIRE_RL_fabric_rl_wr_xaction_master_to_slave_data &&
 	     fabric_v_f_wd_tasks_0$D_OUT[9:8] == 2'd0 ;
