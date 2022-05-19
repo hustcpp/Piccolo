@@ -76,42 +76,52 @@ deriving (FShow, Bits);
 
 typedef struct {
   IFetch_HAddr_t        pc_h;
-  Vector#(NOVA_CFG_BPC_FETCH_W, Br_Class_t) 
+  Vector#(NOVA_CFG_BPC_FETCH_HW, Br_Class_t) 
                         br_class;
-  PC_t                  target_pc;
-} BPC_L0_BTB_ENTRY_t
+} BPC_L0_BTB_INFO_ENTRY_t
 deriving (FShow, Bits);
 
 typedef struct {
-  IFetch_HAddr_t        pc_evn_h;
-  IFetch_HAddr_t        pc_odd_h;
-  IFetch_LAddr_t        pc_os;
-  BPC_BHT_t             bht;
+  Vector#(NOVA_CFG_BPC_FETCH_HW, Maybe#(BPQ_PRED_HF_POS_t))
+                        target_pos;
+} BPC_L0_BTB_MAP_ENTRY_t
+deriving (FShow, Bits);
+
+typedef struct {
+  Vector#(NOVA_CFG_BPC_PRED_HW, Maybe#(PC_t))
+                        target_pc;
+} BPC_L0_BTB_ADDR_ENTRY_t
+deriving (FShow, Bits);
+
+typedef struct {
+  Vector#(2, IFetch_HAddr_t) pc_h;
 } BPC_BTB_REQ_t
 deriving (FShow, Bits);
 
 typedef struct {
-  btb_id_t              btb_id;
-  Vector#(NOVA_CFG_BPC_FETCH_W, Br_Class_t) 
-                        br_class;
-  Vector#(NOVA_CFG_BPC_FETCH_W, BPQ_PRED_POS_t)
-                        br_pos;
-  Vector#(NOVA_CFG_BPC_PRED_W, PC_t)
-                        target_pc;
+  IFetch_LAddr_t        pc_os;
+  BPC_BHT_t             bht;
+  Vector#(2, Maybe#(btb_id_t))  btb_id;
+  Vector#(2, BPC_L0_BTB_INFO_ENTRY_t)
+                        btb_info;
+  Vector#(2, BPC_L0_BTB_MAP_ENTRY_t)
+                        btb_map;
+  Vector#(2, BPC_L0_BTB_ADDR_ENTRY_t)
+                        btb_addr;
 } BPC_BTB_RSP_t#(type btb_id_t) 
 deriving (FShow, Bits);
-typedef BPC_BTB_RSP_t#(L0_BTB_ID_t) BPC_L0_BTB_RSP_t;
-typedef BPC_BTB_RSP_t#(L1_BTB_ID_t) BPC_L1_BTB_RSP_t;
-typedef BPC_BTB_RSP_t#(L2_BTB_ID_t) BPC_L2_BTB_RSP_t;
+typedef BPC_BTB_RSP_t#(L0_BTB_HF_ID_t) BPC_L0_BTB_RSP_t;
+typedef BPC_BTB_RSP_t#(L1_BTB_HF_ID_t) BPC_L1_BTB_RSP_t;
+typedef BPC_BTB_RSP_t#(L2_BTB_HF_ID_t) BPC_L2_BTB_RSP_t;
 
 typedef struct {
   BPC_BTB_REQ_t             btb_req;
   BPC_BTB_RSP_t#(btb_id_t)  btb_rsp;
 } BPC_BPP_REQ_t#(type btb_id_t)
 deriving (FShow, Bits);
-typedef BPC_BPP_REQ_t#(L0_BTB_ID_t) BPC_L0_BPP_REQ_t;
-typedef BPC_BPP_REQ_t#(L1_BTB_ID_t) BPC_L1_BPP_REQ_t;
-typedef BPC_BPP_REQ_t#(L2_BTB_ID_t) BPC_L2_BPP_REQ_t;
+typedef BPC_BPP_REQ_t#(L0_BTB_HF_ID_t) BPC_L0_BPP_REQ_t;
+typedef BPC_BPP_REQ_t#(L1_BTB_HF_ID_t) BPC_L1_BPP_REQ_t;
+typedef BPC_BPP_REQ_t#(L2_BTB_HF_ID_t) BPC_L2_BPP_REQ_t;
 
 typedef struct {
   Bool                  has_new_bp;
@@ -125,21 +135,34 @@ typedef BPC_BPP_RSP_t#(L1_BPP_SIG_t) BPC_L1_BPP_RSP_t;
 typedef BPC_BPP_RSP_t#(L2_BPP_SIG_t) BPC_L2_BPP_RSP_t;
 
 typedef struct {
-  IFetch_HAddr_t        pc_h;
-  IFetch_LAddr_t        pc_os;
-  BPC_BHT_t             bht;
-  PC_t                  pc_target;
-  Br_Class_t            br_class;
+  Maybe#(L0_BTB_HF_ID_t)  btb_id;
+  BPC_L0_BTB_INFO_ENTRY_t info;
+  //BPC_L0_BTB_MAP_ENTRY_t  map;
+} BPC_BTB_UPDT_INFO_REQ_ENTRY_t
+deriving (FShow, Bits);
+
+typedef struct {
+  Maybe#(L0_BTB_HF_ID_t)  btb_id;
+  IFetch_HAddr_t          pc_h;
+  BPC_L0_BTB_ADDR_ENTRY_t e;
+  Vector#(NOVA_CFG_BPC_PRED_HW, IFetch_HF_POS_t)
+                          target_pos;
+} BPC_BTB_UPDT_ADDR_REQ_ENTRY_t
+deriving (FShow, Bits);
+
+typedef struct {
+  Vector#(2, Maybe#(BPC_BTB_UPDT_INFO_REQ_ENTRY_t)) d;
+  Vector#(2, Maybe#(BPC_BTB_UPDT_ADDR_REQ_ENTRY_t)) a;
 } BPC_BTB_UPDT_REQ_t
 deriving (FShow, Bits);
 
 typedef struct {
-  Maybe#(btb_id_t)      rpl_btb_id; // replaced btb id
+  Vector#(2, Maybe#(btb_id_t))     rpl_btb_id; // replaced btb id
 } BPC_BTB_UPDT_RSP_t#(type btb_id_t)
 deriving (FShow, Bits);
-typedef BPC_BTB_UPDT_RSP_t#(L0_BTB_ID_t) BPC_L0_BTB_UPDT_RSP_t;
-typedef BPC_BTB_UPDT_RSP_t#(L1_BTB_ID_t) BPC_L1_BTB_UPDT_RSP_t;
-typedef BPC_BTB_UPDT_RSP_t#(L2_BTB_ID_t) BPC_L2_BTB_UPDT_RSP_t;
+typedef BPC_BTB_UPDT_RSP_t#(L0_BTB_HF_ID_t) BPC_L0_BTB_UPDT_RSP_t;
+typedef BPC_BTB_UPDT_RSP_t#(L1_BTB_HF_ID_t) BPC_L1_BTB_UPDT_RSP_t;
+typedef BPC_BTB_UPDT_RSP_t#(L2_BTB_HF_ID_t) BPC_L2_BTB_UPDT_RSP_t;
 
 typedef struct {
   IFetch_HAddr_t        pc_h;
@@ -155,8 +178,7 @@ typedef struct {
 deriving (FShow, Bits);
 
 typedef struct {
-  IFetch_HAddr_t        pc_evn_h;
-  IFetch_HAddr_t        pc_odd_h;
+  Vector#(2, IFetch_HAddr_t) pc_h;
   IFetch_LAddr_t        pc_os;
   BPC_BHT_t             bht;
   Vector#(NOVA_CFG_BPC_FETCH_W, Br_Class_t) 

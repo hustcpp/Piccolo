@@ -33,6 +33,7 @@ import ISA_Decls :: *;
 import CPU_Globals :: *;
 
 import NOVA_Decls :: *;
+import NOVA_Utils :: *;
 import NOVA_BrPredCplx_IFC     :: *;
 
 (* synthesize *)
@@ -138,12 +139,18 @@ endmodule: mkNOVA_BPC_BPQ
 module mkNOVA_BPC_L0_BTB (NOVA_BPC_L0_BTB_IFC);
   // ----------------
   // Instances
-  Vector#(2, Vector#(TDiv#(NOVA_CFG_L0_BTB_ENTRIES, 2), Reg#(Maybe#(BPC_L0_BTB_ENTRY_t)))) 
-    btb <- replicateM(replicateM(mkRegA(Invalid)));
+  Vector#(2, Vector#(NOVA_CFG_L0_BTB_HF_ENTRIES, Reg#(Maybe#(BPC_L0_BTB_INFO_ENTRY_t)))) 
+    btb_info <- replicateM(replicateM(mkRegA(Invalid)));
+  Vector#(2, Vector#(NOVA_CFG_L0_BTB_HF_ENTRIES, Reg#(BPC_L0_BTB_MAP_ENTRY_t))) 
+    btb_map  <- replicateM(replicateM(mkRegA(unpack(fromInteger(valueOf(0))))));
+  Vector#(2, Vector#(NOVA_CFG_L0_BTB_HF_ENTRIES, Reg#(BPC_L0_BTB_ADDR_ENTRY_t))) 
+    btb_addr <- replicateM(replicateM(mkRegA(unpack(fromInteger(valueOf(0))))));
   GPCvt #(BPC_BTB_REQ_t)            req         <- mkGPCvt;
   GPCvt #(BPC_L0_BTB_RSP_t)         rsp         <- mkGPCvt;
   GPCvt #(BPC_BTB_UPDT_REQ_t)       updt_req    <- mkGPCvt;
   GPCvt #(BPC_L0_BTB_UPDT_RSP_t)    updt_rsp    <- mkGPCvt;
+  Vector#(2, LRU#(NOVA_CFG_L0_BTB_HF_ENTRIES)) lru <- replicateM(mkLRU);
+  Vector#(2, Wire#(Bit#(TLog#(NOVA_CFG_L0_BTB_HF_ENTRIES)))) lruv <- replicateM(mkWire);
 
   // ----------------
   // States
@@ -151,15 +158,118 @@ module mkNOVA_BPC_L0_BTB (NOVA_BPC_L0_BTB_IFC);
   // ----------------
   // Rules 
   rule handle_lkup if (req.hsked());
-    Vector#(2, IFetch_HAddr_t) ra;
+    BPC_L0_BTB_RSP_t rspd = unpack(fromInteger(valueOf(0)));
     let val = req.first();
-    ra[1] = val.pc_odd_h;
-    ra[0] = val.pc_evn_h;
+    for (Integer i = 0; i < 2; i=i+1)
+      for (Integer j = 0; j < valueOf(NOVA_CFG_L0_BTB_HF_ENTRIES); j=j+1)
+        if (btb_info[i][j] matches tagged Valid .val2 &&& val2.pc_h == val.pc_h[i])
+        begin
+          rspd.btb_info[i] = val2;
+          rspd.btb_addr[i] = btb_addr[i][j];
+          rspd.btb_map[i]  = btb_map[i][j];
+          rspd.btb_id[i] = tagged Valid fromInteger(j);
+        end
+    for (Integer i = 0; i < 2; i=i+1)
+      if (rspd.btb_id[i] matches tagged Valid .btb_id2)
+        lru[i].access(1 << btb_id2);
+    rsp.enq(rspd);
+  endrule
 
+  function Tuple2#(BPC_L0_BTB_MAP_ENTRY_t, BPC_L0_BTB_ADDR_ENTRY_t) updt_nxt_entry(
+        BPC_BTB_UPDT_ADDR_REQ_ENTRY_t updt,
+        BPC_L0_BTB_MAP_ENTRY_t  old_map,
+        BPC_L0_BTB_ADDR_ENTRY_t old_addr
+        );
+    BPC_L0_BTB_ADDR_ENTRY_t nxt_addr = old_addr;
+    BPC_L0_BTB_MAP_ENTRY_t  nxt_map  = old_map;
+
+    for (Integer j = 0; j < valueOf(NOVA_CFG_BPC_PRED_HW); j=j+1)
+      if (updt.e.target_pc[j] matches tagged Valid .pc2) 
+      begin
+        let pc_os = updt.target_pos[j];
+        nxt_map.target_pos[pc_os] = tagged Valid fromInteger(j);
+        nxt_addr.target_pc[j] = tagged Valid pc2;
+      end
+      
+    return tuple2(nxt_map, nxt_addr);
+  endfunction
+
+  rule handle_updt if (updt_req.hsked());
+    let val = updt_req.first();
+    for (Integer i = 0; i < 2; i=i+1)
+    begin
+      Maybe#(L0_BTB_HF_ID_t) inv_btb_id = Invalid;
+      Maybe#(L0_BTB_HF_ID_t) rpl_btb_id = Invalid;
+      L0_BTB_HF_ID_t new_btb_id = 'b0;
+      L0_BTB_HF_ID_t alc_btb_id = 'b0;
+      BPC_L0_BTB_MAP_ENTRY_t  entry_map = unpack(fromInteger(valueOf(0)));
+
+      for (Integer j = 0; j < valueOf(NOVA_CFG_L0_BTB_HF_ENTRIES); j=j+1)
+        if (btb_info[i][j] matches Invalid)
+          inv_btb_id = tagged Valid fromInteger(j);
+
+      if (inv_btb_id matches tagged Valid .val2)
+        new_btb_id = val2;
+      else begin
+        new_btb_id = unpack(lruv[i]);
+        rpl_btb_id = tagged Valid new_btb_id;
+      end
+
+      if (val.d[i] matches tagged Valid .val2)
+      begin
+        Bool write_en = False;
+        if (val2.btb_id matches tagged Valid .val3)
+        begin
+          let info_todo = btb_info[i][val3];
+          entry_map = btb_map[i][val3];
+          alc_btb_id = val3;
+          write_en = info_todo matches tagged Valid .entry &&& entry.pc_h == val2.info.pc_h ? True : False;
+        end else begin
+          alc_btb_id = new_btb_id;
+          write_en = True;
+        end
+
+        if (write_en)
+          btb_info[i][alc_btb_id] <= tagged Valid val2.info;
+      end
+
+      if (val.a[i] matches tagged Valid .val2)
+      begin
+        BPC_L0_BTB_MAP_ENTRY_t  map_old   = unpack(fromInteger(valueOf(0)));
+        BPC_L0_BTB_ADDR_ENTRY_t addr_old  = unpack(fromInteger(valueOf(0)));
+        L0_BTB_HF_ID_t          wr_btb_id = alc_btb_id;
+        Bool                    write_en2 = True;
+
+        if (val2.btb_id matches tagged Valid .btb_id2)
+        begin
+          addr_old = btb_addr[i][btb_id2];
+          map_old  = btb_map[i][btb_id2];
+          let info_old = btb_info[i][btb_id2];
+          wr_btb_id = btb_id2;
+          write_en2 = info_old matches tagged Valid .entry &&& entry.pc_h == val2.pc_h ? True : False;
+        end
+
+        if (write_en2)
+        begin
+          match {.nxt_map, .nxt_addr} = updt_nxt_entry(val2, map_old, addr_old);
+          btb_addr[i][wr_btb_id] <= nxt_addr;
+          btb_map[i][wr_btb_id]  <= nxt_map;
+        end
+      end
+    end
+  endrule
+  
+  rule rd_lru;
+    for (Integer i = 0; i < 2; i=i+1)
+      lruv[i] <= lru[i].lru(fromInteger(-1));
   endrule
 
   rule accept_lkup;
     req.deq();
+  endrule
+
+  rule accept_updt;
+    updt_req.deq();
   endrule
 
   // ----------------
@@ -193,6 +303,10 @@ endmodule: mkNOVA_BPC_L0_BPP
 module mkNOVA_BPC_L1_BTB (NOVA_BPC_L1_BTB_IFC);
   // ----------------
   // Instances
+  GPCvt #(BPC_BTB_REQ_t)            req         <- mkGPCvt;
+  GPCvt #(BPC_L1_BTB_RSP_t)         rsp         <- mkGPCvt;
+  GPCvt #(BPC_BTB_UPDT_REQ_t)       updt_req    <- mkGPCvt;
+  GPCvt #(BPC_L1_BTB_UPDT_RSP_t)    updt_rsp    <- mkGPCvt;
 
   // ----------------
   // States
@@ -205,6 +319,8 @@ module mkNOVA_BPC_L1_BTB (NOVA_BPC_L1_BTB_IFC);
 
   // ----------------
   // Interfaces
+  interface lkup_server = toGPServer(req, rsp);
+  interface updt_server = toGPServer(updt_req, updt_rsp);
 endmodule: mkNOVA_BPC_L1_BTB
 
 (* synthesize *)
