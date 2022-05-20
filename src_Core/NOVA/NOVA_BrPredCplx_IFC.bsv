@@ -99,8 +99,6 @@ typedef struct {
 deriving (FShow, Bits);
 
 typedef struct {
-  IFetch_LAddr_t        pc_os;
-  BPC_BHT_t             bht;
   Vector#(2, Maybe#(btb_id_t))  btb_id;
   Vector#(2, BPC_L0_BTB_INFO_ENTRY_t)
                         btb_info;
@@ -115,6 +113,8 @@ typedef BPC_BTB_RSP_t#(L1_BTB_HF_ID_t) BPC_L1_BTB_RSP_t;
 typedef BPC_BTB_RSP_t#(L2_BTB_HF_ID_t) BPC_L2_BTB_RSP_t;
 
 typedef struct {
+  BPC_BHT_t                 ght;
+  IFetch_LAddr_t            pc_os;
   BPC_BTB_REQ_t             btb_req;
   BPC_BTB_RSP_t#(btb_id_t)  btb_rsp;
 } BPC_BPP_REQ_t#(type btb_id_t)
@@ -124,10 +124,9 @@ typedef BPC_BPP_REQ_t#(L1_BTB_HF_ID_t) BPC_L1_BPP_REQ_t;
 typedef BPC_BPP_REQ_t#(L2_BTB_HF_ID_t) BPC_L2_BPP_REQ_t;
 
 typedef struct {
-  Bool                  has_new_bp;
-  Bool                  has_taken_brcc;
-  sig_t                 bp_sig;
+  Maybe#(sig_t)         bp_sig;
   IFetch_LAddr_t        pc_os_end;
+  IFetch_LAddr_t        untaken_brcc_cnt;
 } BPC_BPP_RSP_t#(type sig_t) 
 deriving (FShow, Bits);
 typedef BPC_BPP_RSP_t#(L0_BPP_SIG_t) BPC_L0_BPP_RSP_t;
@@ -167,7 +166,8 @@ typedef BPC_BTB_UPDT_RSP_t#(L2_BTB_HF_ID_t) BPC_L2_BTB_UPDT_RSP_t;
 typedef struct {
   IFetch_HAddr_t        pc_h;
   IFetch_LAddr_t        pc_os;
-  BPC_BHT_t             bht;
+  BPC_BHT_t             ght;
+  Bool                  taken;
   Br_Class_t            br_class;
 } BPC_BPP_UPDT_REQ_t
 deriving (FShow, Bits);
@@ -180,7 +180,7 @@ deriving (FShow, Bits);
 typedef struct {
   Vector#(2, IFetch_HAddr_t) pc_h;
   IFetch_LAddr_t        pc_os;
-  BPC_BHT_t             bht;
+  BPC_BHT_t             ght;
   Vector#(NOVA_CFG_BPC_FETCH_W, Br_Class_t) 
                         br_class;
 } BPC_SPLBP_REQ_t
@@ -196,7 +196,7 @@ deriving (FShow, Bits);
 typedef struct {
   IFetch_HAddr_t        pc_h;
   IFetch_LAddr_t        pc_os;
-  BPC_BHT_t             bht;
+  BPC_BHT_t             ght;
   PC_t                  target_pc;
 } BPC_SPLBP_ALLOC_t
 deriving (FShow, Bits);
@@ -210,6 +210,8 @@ typedef struct {
   PC_t                  excp_base;
 } BPC_CFG_t
 deriving (FShow, Bits);
+
+typedef  Bit #(2)             IFC_PHTE_t;  // prediction history table entry
 
 // ================================================================
 // Interfaces

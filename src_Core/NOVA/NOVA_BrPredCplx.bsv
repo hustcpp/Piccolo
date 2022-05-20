@@ -196,6 +196,8 @@ module mkNOVA_BPC_L0_BTB (NOVA_BPC_L0_BTB_IFC);
 
   rule handle_updt if (updt_req.hsked());
     let val = updt_req.first();
+    BPC_L0_BTB_UPDT_RSP_t updt_rspv = unpack(fromInteger(valueOf(0)));
+
     for (Integer i = 0; i < 2; i=i+1)
     begin
       Maybe#(L0_BTB_HF_ID_t) inv_btb_id = Invalid;
@@ -226,6 +228,7 @@ module mkNOVA_BPC_L0_BTB (NOVA_BPC_L0_BTB_IFC);
           write_en = info_todo matches tagged Valid .entry &&& entry.pc_h == val2.info.pc_h ? True : False;
         end else begin
           alc_btb_id = new_btb_id;
+          updt_rspv.rpl_btb_id[i] = rpl_btb_id;
           write_en = True;
         end
 
@@ -257,6 +260,8 @@ module mkNOVA_BPC_L0_BTB (NOVA_BPC_L0_BTB_IFC);
         end
       end
     end
+
+    updt_rsp.enq(updt_rspv);
   endrule
   
   rule rd_lru;
@@ -285,18 +290,166 @@ endmodule: mkNOVA_BPC_L0_BTB
 module mkNOVA_BPC_L0_BPP (NOVA_BPC_L0_BPP_IFC);
   // ----------------
   // Instances
+  Vector#(2, Vector#(NOVA_CFG_L0_BPP_HF_ENTRIES, Vector#(NOVA_CFG_BPC_FETCH_HW,Reg#(IFC_PHTE_t)))) 
+                            pht <- replicateM(replicateM(replicateM(mkRegA('b0))));
+
+  GPCvt #(BPC_L0_BPP_REQ_t)         req         <- mkGPCvt;
+  GPCvt #(BPC_L0_BPP_RSP_t)         rsp         <- mkGPCvt;
+  GPCvt #(BPC_BPP_UPDT_REQ_t)       updt_req    <- mkGPCvt;
+  GPCvt #(BPC_BPP_UPDT_RSP_t)       updt_rsp    <- mkGPCvt;
 
   // ----------------
   // States
 
+
   // ----------------
   // Rules 
+
+  function Bool predict(IFC_PHTE_t val);
+    return val >= 2'b10;
+  endfunction
+
+  function IFC_PHTE_t updt(IFC_PHTE_t val, Bool taken);
+    IFC_PHTE_t res = val;
+    if (taken)
+      res = val == 2'b11 ? 2'b11 : val + 2'b01;
+    else
+      res = val == 2'b00 ? 2'b00 : val - 2'b01;
+    return res;
+  endfunction
+
+  rule handle_lkup;
+    let val = req.first();
+    BPC_L0_BPP_RSP_t rspv = unpack(fromInteger(valueOf(0)));
+    Vector#(2, Bit#(NOVA_CFG_BPC_FETCH_HW)) res_taken  = replicate('b0);
+    Vector#(2, Bit#(NOVA_CFG_BPC_FETCH_HW)) res_btb_valid = replicate('b0);
+    Vector#(2, Bit#(NOVA_CFG_BPC_FETCH_HW)) res_is_brcc   = replicate('b0);
+    Vector#(2, L0_BPP_HF_IDX_t) res_bpp_idx = replicate('b0);
+
+    for (Integer i = 0; i < 2; i=i+1)
+    begin
+      L0_BPP_HF_IDX_t idx = truncate(pack(val.btb_req.pc_h[i])) ^ truncate(pack(val.ght));
+      res_bpp_idx[i] = idx;
+      Vector#(NOVA_CFG_BPC_FETCH_HW,IFC_PHTE_t) phts = readVReg(pht[i][idx]);
+
+      for (Integer j = 0; j < valueOf(NOVA_CFG_BPC_FETCH_HW); j=j+1)
+        begin
+          Bool taken = False;
+          Bool is_brcc = False;
+          Bool btb_valid = False;
+          case (val.btb_rsp.btb_info[i].br_class[j]) matches
+            BC_NO:      // not a branch or jump
+              begin
+              end
+            BC_BRCC:    // conditional branch, brcc can be currently not predicated if not mapped in BTB
+              begin
+                is_brcc = True;
+                if (predict(phts[j]))
+                begin
+                  taken = True;
+                  btb_valid = True;
+                end
+              end
+            BC_BRUC:    // un-conditional branch
+              begin
+                taken = True;
+                btb_valid = isValid(val.btb_rsp.btb_map[i].target_pos[j]);
+              end
+            BC_JMP:     // unconditional jump
+              begin
+                taken = True;
+                btb_valid = isValid(val.btb_rsp.btb_map[i].target_pos[j]);
+              end
+            //BC_BRNT:    // conditional branch mostly not taken, not currently predicted
+            //BC_LOOP:    // Special BRCC: Small loop
+            BC_CALL:    // Special JMP: func call
+              begin
+                taken = True;
+              end
+            BC_RET:     // Special JMP: func ret
+              begin
+                taken = True;
+              end
+            BC_CONT:    // Special BRCC: countinue in a loop
+              begin
+                taken = True;
+              end
+            BC_IND:     // Special JMP: indirect target other than func ret
+              begin
+                taken = True;
+              end
+          endcase
+          res_taken[i][j]  = pack(taken);
+          res_btb_valid[i][j] = pack(btb_valid);
+          res_is_brcc[i][j] = pack(is_brcc);
+        end
+    end
+    
+    Bit#(NOVA_CFG_BPC_FETCH_W) vector  = 'b0;
+    Bit#(NOVA_CFG_BPC_FETCH_W) branchs = 'b0;
+    if (msb(val.pc_os) == 1'b0)
+    begin
+      vector = {res_taken[1], res_taken[0]};
+      branchs = {res_is_brcc[1], res_is_brcc[0]};
+    end else begin
+      vector = {res_taken[0], res_taken[1]};
+      branchs = {res_is_brcc[0], res_is_brcc[1]};
+    end
+
+    IFetch_HF_POS_t start = truncate(val.pc_os);
+    Maybe#(IFetch_LAddr_t) end_pos   = Invalid;
+
+    rspv.bp_sig = Invalid;
+    for (Integer j = 0; j < valueOf(NOVA_CFG_BPC_FETCH_W); j=j+1)
+    if (!isValid(end_pos) && fromInteger(j) >= start)
+    begin
+      if (vector[j] == 1'b1)
+      begin
+        end_pos = tagged Valid fromInteger(j);
+      end else begin
+        rspv.untaken_brcc_cnt = rspv.untaken_brcc_cnt + zeroExtend(branchs[j]);
+      end
+    end
+
+    rspv.pc_os_end = end_pos.Valid;
+    IFetch_LAddr_t sig = 'b0;
+    if (msb(val.pc_os) == 1'b0)
+    begin
+      L0_BPP_HF_IDX_t high = res_bpp_idx[msb(rspv.pc_os_end)];
+      sig = {high, msb(rspv.pc_os_end)};
+    end else begin
+      L0_BPP_HF_IDX_t high = res_bpp_idx[~msb(rspv.pc_os_end)];
+      sig = {high, ~msb(rspv.pc_os_end)};
+    end
+    if (isValid(end_pos))
+      rspv.bp_sig = tagged Valid sig;
+  endrule
+
+  rule handle_updt;
+    let val = updt_req.first();
+    BPC_BPP_UPDT_RSP_t rspv = unpack('b0);
+    L0_BPP_HF_IDX_t idx = truncate(pack(val.pc_h)) ^ truncate(pack(val.ght));
+    IFetch_HF_POS_t lsb_os = truncate(val.pc_os);
+    Vector#(NOVA_CFG_BPC_FETCH_HW,IFC_PHTE_t) phts = readVReg(pht[msb(val.pc_os)][idx]);
+    pht[msb(val.pc_os)][idx][lsb_os] <= updt(pht[msb(val.pc_os)][idx][lsb_os], val.taken);
+    updt_rsp.enq(rspv);
+  endrule
+
+  rule accept_lkup;
+    req.deq();
+  endrule
+
+  rule accept_updt;
+    updt_req.deq();
+  endrule
 
   // ----------------
   // method
 
   // ----------------
   // Interfaces
+  interface lkup_server = toGPServer(req, rsp);
+  interface updt_server = toGPServer(updt_req, updt_rsp);
 endmodule: mkNOVA_BPC_L0_BPP
 
 (* synthesize *)
