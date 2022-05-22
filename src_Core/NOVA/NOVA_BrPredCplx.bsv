@@ -17,6 +17,7 @@ import GetPut       :: *;
 import ClientServer :: *;
 import Connectable  :: *;
 import ConfigReg    :: *;
+import RegFile      :: *;
 
 import Vector::*;
 
@@ -146,6 +147,7 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
     Mul#(btb_asso, btb_sets, btb_hf_entries),
     Log#(btb_asso, btb_asso_id_w),
     Add#(btb_asso_id_w, btb_set_idx_w, btb_id_hw),
+    Add#(btb_max_set_idx, 1, btb_sets),
     Max#(1, btb_set_idx_w, btb_set_idx_w1),
     Alias#(btb_set_idx_t, Bit#(btb_set_idx_w)),
     Alias#(btb_set_idx1_t, Bit#(btb_set_idx_w1)),
@@ -153,12 +155,12 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
 
   // ----------------
   // Instances
-  Vector#(2, Vector#(btb_sets, Vector#(btb_asso, Reg#(Maybe#(BPC_BTB_INFO_ENTRY_t)))))
-    btb_info <- replicateM(replicateM(replicateM(mkRegA(Invalid))));
-  Vector#(2, Vector#(btb_sets, Vector#(btb_asso, Reg#(BPC_BTB_MAP_ENTRY_t))))
-    btb_map  <- replicateM(replicateM(replicateM(mkRegA(unpack(fromInteger(valueOf(0)))))));
-  Vector#(2, Vector#(btb_sets, Vector#(btb_asso, Reg#(BPC_BTB_ADDR_ENTRY_t))))
-    btb_addr <- replicateM(replicateM(replicateM(mkRegA(unpack(fromInteger(valueOf(0)))))));
+  Vector#(2, RegFile#(btb_set_idx1_t, Vector#(btb_asso, Maybe#(BPC_BTB_INFO_ENTRY_t))))
+    btb_info <- replicateM(mkRegFile(0, fromInteger(valueOf(btb_max_set_idx))));
+  Vector#(2, RegFile#(btb_set_idx1_t, Vector#(btb_asso, BPC_BTB_MAP_ENTRY_t)))
+    btb_map  <- replicateM(mkRegFile(0, fromInteger(valueOf(btb_max_set_idx))));
+  Vector#(2, RegFile#(btb_set_idx1_t, Vector#(btb_asso, BPC_BTB_ADDR_ENTRY_t)))
+    btb_addr <- replicateM(mkRegFile(0, fromInteger(valueOf(btb_max_set_idx))));
   GPCvt #(req_t)            req         <- mkGPCvt;
   GPCvt #(updt_req_t)       updt_req    <- mkGPCvt;
   Vector#(2, LRU#(btb_asso))               lru <- replicateM(mkLRU);
@@ -179,9 +181,9 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
       btb_set_idx1_t idx = 'b0;
       if (valueOf(btb_set_idx_w) != 0)
         idx = val.pc_h[i][valueOf(btb_set_idx_w)-1:0];
-      Vector#(btb_asso, Maybe#(BPC_BTB_INFO_ENTRY_t)) btb_info_rd = readVReg(btb_info[i][idx]);
-      Vector#(btb_asso, BPC_BTB_MAP_ENTRY_t)  btb_map_rd = readVReg(btb_map[i][idx]);
-      Vector#(btb_asso, BPC_BTB_ADDR_ENTRY_t) btb_addr_rd = readVReg(btb_addr[i][idx]);
+      Vector#(btb_asso, Maybe#(BPC_BTB_INFO_ENTRY_t)) btb_info_rd = btb_info[i].sub(idx);
+      Vector#(btb_asso, BPC_BTB_MAP_ENTRY_t)  btb_map_rd = btb_map[i].sub(idx);
+      Vector#(btb_asso, BPC_BTB_ADDR_ENTRY_t) btb_addr_rd = btb_addr[i].sub(idx);
 
       for (Integer j = 0; j < valueOf(btb_asso); j=j+1)
         if (btb_info_rd[j] matches tagged Valid .val2 &&& val2.pc_h == val.pc_h[i])
@@ -242,7 +244,7 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
       btb_set_idx1_t idx = 0;
       if (valueOf(btb_set_idx_w) != 0)
         idx = val.d[i].Valid.info.pc_h[valueOf(btb_set_idx_w)-1:0];
-      Vector#(btb_asso, Maybe#(BPC_BTB_INFO_ENTRY_t)) btb_info_rd = readVReg(btb_info[i][idx]);
+      Vector#(btb_asso, Maybe#(BPC_BTB_INFO_ENTRY_t)) btb_info_rd = btb_info[i].sub(idx);
 
       for (Integer j = 0; j < valueOf(btb_asso); j=j+1)
         if (btb_info_rd[j] matches Invalid)
@@ -282,7 +284,10 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
         end
 
         if (write_en)
-          btb_info[i][idx][alc_btb_id] <= tagged Valid val2.info;
+        begin
+          btb_info_rd[alc_btb_id] = tagged Valid val2.info;
+          btb_info[i].upd(idx, btb_info_rd);
+        end
       end
 
       if (val.a[i] matches tagged Valid .val2)
@@ -295,8 +300,8 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
         idx = 'b0;
         if (valueOf(btb_set_idx_w) != 0)
           idx = val2.pc_h[valueOf(btb_set_idx_w)-1:0];
-        Vector#(btb_asso, BPC_BTB_MAP_ENTRY_t)  btb_map_rd = readVReg(btb_map[i][idx]);
-        Vector#(btb_asso, BPC_BTB_ADDR_ENTRY_t) btb_addr_rd = readVReg(btb_addr[i][idx]);
+        Vector#(btb_asso, BPC_BTB_MAP_ENTRY_t)  btb_map_rd = btb_map[i].sub(idx);
+        Vector#(btb_asso, BPC_BTB_ADDR_ENTRY_t) btb_addr_rd = btb_addr[i].sub(idx);
 
         if (val2.btb_id matches tagged Valid .btb_id2)
         begin
@@ -311,8 +316,10 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
         if (write_en2)
         begin
           match {.nxt_map, .nxt_addr} = updt_nxt_entry(val2, map_old, addr_old);
-          btb_addr[i][idx][wr_btb_id] <= nxt_addr;
-          btb_map[i][idx][wr_btb_id]  <= nxt_map;
+          btb_map_rd[wr_btb_id]  = nxt_map;
+          btb_addr_rd[wr_btb_id] = nxt_addr;
+          btb_addr[i].upd(idx, btb_addr_rd);
+          btb_map[i].upd(idx, btb_map_rd);
         end
       end
     end
