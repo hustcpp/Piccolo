@@ -68,31 +68,18 @@ interface LRU#(numeric type len);
 endinterface
 
 module mkLRU (LRU#(len));
-  Vector#(len, Vector#(len, Reg#(Bit#(1)))) age_matrix <- replicateM(replicateM(mkRegA(0)));
+  Reg#(Bit#(TMul#(len,len))) age_matrix <- mkRegA(0);
 
   method Action access(Bit#(len) val);
-    Vector#(len, Bool) x = unpack(val);
-    for (Integer i=0;i<valueOf(len);i=i+1) begin :older_1d
-      for (Integer j=0;j<valueOf(len);j=j+1) begin :older_2d
-        if (i < j) begin:gen_i_lt_j
-          // age_matrix[i][j]==1 means j is older than i
-          if ( x[i] || x[j])
-            age_matrix[i][j] <= x[i] ? 1'b1 :
-                                  x[j] ? 1'b0 :
-                                  1'b0 ;
-        end 
-        else begin:gen_i_nlt_j
-            age_matrix[i][j] <= 1'b0;
-        end
-      end
-    end
   endmethod
 
   method Bit#(TLog#(len)) lru(Bit#(len) entry_sel_valid);
     Bit#(TLog#(len)) entry_sel_out = 'b0;
-    for (Integer i=0;i<valueOf(len);i=i+1) begin :gen_sel_out
-      let age_matrix_rd = readVReg(age_matrix[i]);
-      if (((pack(age_matrix_rd) & entry_sel_valid) == 'b0) && (entry_sel_valid[i] == 1'b1))
+    Bit#(TMul#(len,len)) m = age_matrix;
+    Integer ilen = valueOf(len);
+    for (Integer i=0;i<ilen;i=i+1) begin :gen_sel_out
+      Bit#(len) entry_sel = m[ilen*i+ilen-1:ilen*i];
+      if (((entry_sel & entry_sel_valid) == 'b0) && (entry_sel_valid[i] == 1'b1))
         entry_sel_out = fromInteger(i);
     end
     return entry_sel_out;

@@ -77,33 +77,33 @@ typedef `NOVA_CFG_L0_BTB_ENTRIES NOVA_CFG_L0_BTB_ENTRIES;
 `else
 typedef 16  NOVA_CFG_L0_BTB_ENTRIES;
 `endif
-typedef TDiv#(NOVA_CFG_L0_BTB_ENTRIES,2)  NOVA_CFG_L0_BTB_HF_ENTRIES;
-typedef TLog#(NOVA_CFG_L0_BTB_ENTRIES) NOVA_CFG_L0_BTB_ID_W;
-typedef  Bit #(NOVA_CFG_L0_BTB_ID_W)   L0_BTB_ID_t;
-typedef TSub#(NOVA_CFG_L0_BTB_ID_W,1)  NOVA_CFG_L0_BTB_ID_HW;
-typedef  Bit #(NOVA_CFG_L0_BTB_ID_HW)  L0_BTB_HF_ID_t;
+typedef TDiv#(NOVA_CFG_L0_BTB_ENTRIES,2)   NOVA_CFG_L0_BTB_HF_ENTRIES;
+typedef TLog#(NOVA_CFG_L0_BTB_ENTRIES)     NOVA_CFG_L0_BTB_ID_W;
+typedef  Bit #(NOVA_CFG_L0_BTB_ID_W)       L0_BTB_ID_t;
+typedef TLog#(NOVA_CFG_L0_BTB_HF_ENTRIES)  NOVA_CFG_L0_BTB_ID_HW;
+typedef  Bit #(NOVA_CFG_L0_BTB_ID_HW)      L0_BTB_HF_ID_t;
 
 `ifdef NOVA_CFG_L1_BTB_ENTRIES
 typedef `NOVA_CFG_L1_BTB_ENTRIES NOVA_CFG_L1_BTB_ENTRIES;
 `else
-typedef 128  NOVA_CFG_L1_BTB_ENTRIES;
+typedef 16  NOVA_CFG_L1_BTB_ENTRIES;
 `endif
-typedef TDiv#(NOVA_CFG_L1_BTB_ENTRIES,2)  NOVA_CFG_L1_BTB_HF_ENTRIES;
-typedef TLog#(NOVA_CFG_L1_BTB_ENTRIES) NOVA_CFG_L1_BTB_ID_W;
-typedef  Bit #(NOVA_CFG_L1_BTB_ID_W)   L1_BTB_ID_t;
-typedef TSub#(NOVA_CFG_L1_BTB_ID_W,1)  NOVA_CFG_L1_BTB_ID_HW;
-typedef  Bit #(NOVA_CFG_L1_BTB_ID_HW)  L1_BTB_HF_ID_t;
+typedef TDiv#(NOVA_CFG_L1_BTB_ENTRIES,2)   NOVA_CFG_L1_BTB_HF_ENTRIES;
+typedef TLog#(NOVA_CFG_L1_BTB_ENTRIES)     NOVA_CFG_L1_BTB_ID_W;
+typedef  Bit #(NOVA_CFG_L1_BTB_ID_W)       L1_BTB_ID_t;
+typedef TLog#(NOVA_CFG_L1_BTB_HF_ENTRIES)  NOVA_CFG_L1_BTB_ID_HW;
+typedef  Bit #(NOVA_CFG_L1_BTB_ID_HW)      L1_BTB_HF_ID_t;
 
 `ifdef NOVA_CFG_L2_BTB_ENTRIES
 typedef `NOVA_CFG_L2_BTB_ENTRIES NOVA_CFG_L2_BTB_ENTRIES;
 `else
-typedef 1024  NOVA_CFG_L2_BTB_ENTRIES;
+typedef 16  NOVA_CFG_L2_BTB_ENTRIES;
 `endif
-typedef TDiv#(NOVA_CFG_L2_BTB_ENTRIES,2)  NOVA_CFG_L2_BTB_HF_ENTRIES;
-typedef TLog#(NOVA_CFG_L2_BTB_ENTRIES) NOVA_CFG_L2_BTB_ID_W;
-typedef  Bit #(NOVA_CFG_L2_BTB_ID_W)   L2_BTB_ID_t;
-typedef TSub#(NOVA_CFG_L2_BTB_ID_W,1)  NOVA_CFG_L2_BTB_ID_HW;
-typedef  Bit #(NOVA_CFG_L2_BTB_ID_HW)  L2_BTB_HF_ID_t;
+typedef TDiv#(NOVA_CFG_L2_BTB_ENTRIES,2)   NOVA_CFG_L2_BTB_HF_ENTRIES;
+typedef TLog#(NOVA_CFG_L2_BTB_ENTRIES)     NOVA_CFG_L2_BTB_ID_W;
+typedef  Bit #(NOVA_CFG_L2_BTB_ID_W)       L2_BTB_ID_t;
+typedef TLog#(NOVA_CFG_L2_BTB_HF_ENTRIES)  NOVA_CFG_L2_BTB_ID_HW;
+typedef  Bit #(NOVA_CFG_L2_BTB_ID_HW)      L2_BTB_HF_ID_t;
 
 `ifdef NOVA_CFG_L0_BPP_ENTRIES
 typedef `NOVA_CFG_L0_BPP_ENTRIES NOVA_CFG_L0_BPP_ENTRIES;
@@ -157,59 +157,5 @@ typedef enum {
     BC_IND      // Special JMP: indirect target other than func ret
    } Br_Class_t deriving (Bits, Eq, FShow);
 
-// utility module to convert a get put interface to fifo like with no delay
-interface GPCvt#(type a_type);
-  method Action enq( a_type x);
-  method Action deq();
-  method a_type first();
-  method Bool hsked();
-endinterface
-
-module mkGPCvt (GPCvt#(a_type))
-  provisos( Bits#(a_type, sa));
-
-  Wire#(a_type) data <- mkDWire(unpack(fromInteger(valueOf(0))));
-  PulseWire     deq_evt <- mkPulseWire;
-  PulseWire     hsk_evt <- mkPulseWire;
-
-  method Action enq( a_type x) if (deq_evt);
-    data <= x;
-    hsk_evt.send();
-  endmethod
-
-  method Action deq();
-    deq_evt.send();
-  endmethod
-
-  method a_type first();
-    return data;
-  endmethod
-
-  method Bool hsked();
-    return hsk_evt;
-  endmethod
-endmodule
-
-instance ToPut #(GPCvt#(a), a);
-  function Put#(a) toPut (GPCvt#(a) i);
-    return (interface Put;
-              method Action put(a x);
-                i.enq(x);
-              endmethod
-            endinterface);
-  endfunction
-endinstance
-
-instance ToGet #(GPCvt#(a), a);
-  function Get#(a) toGet (GPCvt#(a) i);
-    return (interface Get;
-              method ActionValue#(a) get();
-                let ret = i.first();
-                i.deq;
-                return ret;
-              endmethod
-            endinterface);
-  endfunction
-endinstance
 
 endpackage

@@ -135,22 +135,29 @@ module mkNOVA_BPC_BPQ (NOVA_BPC_BPQ_IFC);
   interface ifc_deq_intf = toGet(deq_val);
 endmodule: mkNOVA_BPC_BPQ
 
-(* synthesize *)
-module mkNOVA_BPC_L0_BTB (NOVA_BPC_L0_BTB_IFC);
+module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(btb_hf_entries, req_t, rsp_t, updt_req_t, updt_rsp_t))
+  provisos(
+    Alias#(req_t, BPC_BTB_REQ_t),
+    Alias#(rsp_t, BPC_BTB_RSP_t#(btb_id_t)),
+    Alias#(updt_req_t, BPC_BTB_UPDT_REQ_t#(btb_id_t)),
+    Alias#(updt_rsp_t, BPC_BTB_UPDT_RSP_t#(btb_id_t)),
+    Alias#(btb_id_t, Bit#(btb_id_hw)),
+    Log#(btb_hf_entries,btb_id_hw)
+  );
   // ----------------
   // Instances
-  Vector#(2, Vector#(NOVA_CFG_L0_BTB_HF_ENTRIES, Reg#(Maybe#(BPC_L0_BTB_INFO_ENTRY_t)))) 
+  Vector#(2, Vector#(btb_hf_entries, Reg#(Maybe#(BPC_BTB_INFO_ENTRY_t)))) 
     btb_info <- replicateM(replicateM(mkRegA(Invalid)));
-  Vector#(2, Vector#(NOVA_CFG_L0_BTB_HF_ENTRIES, Reg#(BPC_L0_BTB_MAP_ENTRY_t))) 
+  Vector#(2, Vector#(btb_hf_entries, Reg#(BPC_BTB_MAP_ENTRY_t))) 
     btb_map  <- replicateM(replicateM(mkRegA(unpack(fromInteger(valueOf(0))))));
-  Vector#(2, Vector#(NOVA_CFG_L0_BTB_HF_ENTRIES, Reg#(BPC_L0_BTB_ADDR_ENTRY_t))) 
+  Vector#(2, Vector#(btb_hf_entries, Reg#(BPC_BTB_ADDR_ENTRY_t))) 
     btb_addr <- replicateM(replicateM(mkRegA(unpack(fromInteger(valueOf(0))))));
-  GPCvt #(BPC_BTB_REQ_t)            req         <- mkGPCvt;
-  GPCvt #(BPC_L0_BTB_RSP_t)         rsp         <- mkGPCvt;
-  GPCvt #(BPC_BTB_UPDT_REQ_t)       updt_req    <- mkGPCvt;
-  GPCvt #(BPC_L0_BTB_UPDT_RSP_t)    updt_rsp    <- mkGPCvt;
-  Vector#(2, LRU#(NOVA_CFG_L0_BTB_HF_ENTRIES)) lru <- replicateM(mkLRU);
-  Vector#(2, Wire#(Bit#(TLog#(NOVA_CFG_L0_BTB_HF_ENTRIES)))) lruv <- replicateM(mkWire);
+  GPCvt #(req_t)            req         <- mkGPCvt;
+  GPCvt #(rsp_t)            rsp         <- mkGPCvt;
+  GPCvt #(updt_req_t)       updt_req    <- mkGPCvt;
+  GPCvt #(updt_rsp_t)       updt_rsp    <- mkGPCvt;
+  Vector#(2, LRU#(btb_hf_entries)) lru <- replicateM(mkLRU);
+  Vector#(2, Wire#(Bit#(TLog#(btb_hf_entries)))) lruv <- replicateM(mkWire);
 
   // ----------------
   // States
@@ -158,10 +165,10 @@ module mkNOVA_BPC_L0_BTB (NOVA_BPC_L0_BTB_IFC);
   // ----------------
   // Rules 
   rule handle_lkup if (req.hsked());
-    BPC_L0_BTB_RSP_t rspd = unpack(fromInteger(valueOf(0)));
+    rsp_t rspd = unpack(fromInteger(valueOf(0)));
     let val = req.first();
     for (Integer i = 0; i < 2; i=i+1)
-      for (Integer j = 0; j < valueOf(NOVA_CFG_L0_BTB_HF_ENTRIES); j=j+1)
+      for (Integer j = 0; j < valueOf(btb_hf_entries); j=j+1)
         if (btb_info[i][j] matches tagged Valid .val2 &&& val2.pc_h == val.pc_h[i])
         begin
           rspd.btb_info[i] = val2;
@@ -175,13 +182,13 @@ module mkNOVA_BPC_L0_BTB (NOVA_BPC_L0_BTB_IFC);
     rsp.enq(rspd);
   endrule
 
-  function Tuple2#(BPC_L0_BTB_MAP_ENTRY_t, BPC_L0_BTB_ADDR_ENTRY_t) updt_nxt_entry(
-        BPC_BTB_UPDT_ADDR_REQ_ENTRY_t updt,
-        BPC_L0_BTB_MAP_ENTRY_t  old_map,
-        BPC_L0_BTB_ADDR_ENTRY_t old_addr
+  function Tuple2#(BPC_BTB_MAP_ENTRY_t, BPC_BTB_ADDR_ENTRY_t) updt_nxt_entry(
+        BPC_BTB_UPDT_ADDR_REQ_ENTRY_t#(btb_id_t) updt,
+        BPC_BTB_MAP_ENTRY_t  old_map,
+        BPC_BTB_ADDR_ENTRY_t old_addr
         );
-    BPC_L0_BTB_ADDR_ENTRY_t nxt_addr = old_addr;
-    BPC_L0_BTB_MAP_ENTRY_t  nxt_map  = old_map;
+    BPC_BTB_ADDR_ENTRY_t nxt_addr = old_addr;
+    BPC_BTB_MAP_ENTRY_t  nxt_map  = old_map;
 
     for (Integer j = 0; j < valueOf(NOVA_CFG_BPC_PRED_HW); j=j+1)
       if (updt.e.target_pc[j] matches tagged Valid .pc2) 
@@ -196,17 +203,17 @@ module mkNOVA_BPC_L0_BTB (NOVA_BPC_L0_BTB_IFC);
 
   rule handle_updt if (updt_req.hsked());
     let val = updt_req.first();
-    BPC_L0_BTB_UPDT_RSP_t updt_rspv = unpack(fromInteger(valueOf(0)));
+    updt_rsp_t updt_rspv = unpack(fromInteger(valueOf(0)));
 
     for (Integer i = 0; i < 2; i=i+1)
     begin
-      Maybe#(L0_BTB_HF_ID_t) inv_btb_id = Invalid;
-      Maybe#(L0_BTB_HF_ID_t) rpl_btb_id = Invalid;
-      L0_BTB_HF_ID_t new_btb_id = 'b0;
-      L0_BTB_HF_ID_t alc_btb_id = 'b0;
-      BPC_L0_BTB_MAP_ENTRY_t  entry_map = unpack(fromInteger(valueOf(0)));
+      Maybe#(btb_id_t) inv_btb_id = Invalid;
+      Maybe#(btb_id_t) rpl_btb_id = Invalid;
+      btb_id_t new_btb_id = 'b0;
+      btb_id_t alc_btb_id = 'b0;
+      BPC_BTB_MAP_ENTRY_t  entry_map = unpack(fromInteger(valueOf(0)));
 
-      for (Integer j = 0; j < valueOf(NOVA_CFG_L0_BTB_HF_ENTRIES); j=j+1)
+      for (Integer j = 0; j < valueOf(btb_hf_entries); j=j+1)
         if (btb_info[i][j] matches Invalid)
           inv_btb_id = tagged Valid fromInteger(j);
 
@@ -238,9 +245,9 @@ module mkNOVA_BPC_L0_BTB (NOVA_BPC_L0_BTB_IFC);
 
       if (val.a[i] matches tagged Valid .val2)
       begin
-        BPC_L0_BTB_MAP_ENTRY_t  map_old   = unpack(fromInteger(valueOf(0)));
-        BPC_L0_BTB_ADDR_ENTRY_t addr_old  = unpack(fromInteger(valueOf(0)));
-        L0_BTB_HF_ID_t          wr_btb_id = alc_btb_id;
+        BPC_BTB_MAP_ENTRY_t  map_old   = unpack(fromInteger(valueOf(0)));
+        BPC_BTB_ADDR_ENTRY_t addr_old  = unpack(fromInteger(valueOf(0)));
+        btb_id_t                wr_btb_id = alc_btb_id;
         Bool                    write_en2 = True;
 
         if (val2.btb_id matches tagged Valid .btb_id2)
@@ -284,7 +291,28 @@ module mkNOVA_BPC_L0_BTB (NOVA_BPC_L0_BTB_IFC);
   // Interfaces
   interface lkup_server = toGPServer(req, rsp);
   interface updt_server = toGPServer(updt_req, updt_rsp);
-endmodule: mkNOVA_BPC_L0_BTB
+endmodule: mkNOVA_BPC_GNRL_BTB
+
+(* synthesize *)
+module mkNOVA_BPC_L0_BTB (NOVA_BPC_L0_BTB_IFC);
+  function module#(NOVA_BPC_L0_BTB_IFC) mkNOVA_BPC_L0_BTB_f = mkNOVA_BPC_GNRL_BTB;
+  let  m <- mkNOVA_BPC_L0_BTB_f;
+  return m;
+endmodule
+
+(* synthesize *)
+module mkNOVA_BPC_L1_BTB (NOVA_BPC_L1_BTB_IFC);
+  function module#(NOVA_BPC_L1_BTB_IFC) mkNOVA_BPC_L1_BTB_f = mkNOVA_BPC_GNRL_BTB;
+  let  m <- mkNOVA_BPC_L1_BTB_f;
+  return m;
+endmodule
+
+(* synthesize *)
+module mkNOVA_BPC_L2_BTB (NOVA_BPC_L2_BTB_IFC);
+  function module#(NOVA_BPC_L2_BTB_IFC) mkNOVA_BPC_L2_BTB_f = mkNOVA_BPC_GNRL_BTB;
+  let  m <- mkNOVA_BPC_L2_BTB_f;
+  return m;
+endmodule
 
 (* synthesize *)
 module mkNOVA_BPC_L0_BPP (NOVA_BPC_L0_BPP_IFC);
@@ -452,29 +480,6 @@ module mkNOVA_BPC_L0_BPP (NOVA_BPC_L0_BPP_IFC);
   interface updt_server = toGPServer(updt_req, updt_rsp);
 endmodule: mkNOVA_BPC_L0_BPP
 
-(* synthesize *)
-module mkNOVA_BPC_L1_BTB (NOVA_BPC_L1_BTB_IFC);
-  // ----------------
-  // Instances
-  GPCvt #(BPC_BTB_REQ_t)            req         <- mkGPCvt;
-  GPCvt #(BPC_L1_BTB_RSP_t)         rsp         <- mkGPCvt;
-  GPCvt #(BPC_BTB_UPDT_REQ_t)       updt_req    <- mkGPCvt;
-  GPCvt #(BPC_L1_BTB_UPDT_RSP_t)    updt_rsp    <- mkGPCvt;
-
-  // ----------------
-  // States
-
-  // ----------------
-  // Rules 
-
-  // ----------------
-  // method
-
-  // ----------------
-  // Interfaces
-  interface lkup_server = toGPServer(req, rsp);
-  interface updt_server = toGPServer(updt_req, updt_rsp);
-endmodule: mkNOVA_BPC_L1_BTB
 
 (* synthesize *)
 module mkNOVA_BPC_L1_BPP (NOVA_BPC_L1_BPP_IFC);
@@ -493,24 +498,6 @@ module mkNOVA_BPC_L1_BPP (NOVA_BPC_L1_BPP_IFC);
   // ----------------
   // Interfaces
 endmodule: mkNOVA_BPC_L1_BPP
-
-(* synthesize *)
-module mkNOVA_BPC_L2_BTB (NOVA_BPC_L2_BTB_IFC);
-  // ----------------
-  // Instances
-
-  // ----------------
-  // States
-
-  // ----------------
-  // Rules 
-
-  // ----------------
-  // method
-
-  // ----------------
-  // Interfaces
-endmodule: mkNOVA_BPC_L2_BTB
 
 (* synthesize *)
 module mkNOVA_BPC_L2_BPP (NOVA_BPC_L2_BPP_IFC);
@@ -618,10 +605,10 @@ module mkNOVA_BrPredCplx (NOVA_BrPredCplx_IFC);
   // Instances
   NOVA_BPC_BPQ_IFC     bpq    <- mkNOVA_BPC_BPQ;
   NOVA_BPC_L0_BTB_IFC  l0_btb <- mkNOVA_BPC_L0_BTB;
-  NOVA_BPC_L0_BPP_IFC  l0_bpp <- mkNOVA_BPC_L0_BPP;
   NOVA_BPC_L1_BTB_IFC  l1_btb <- mkNOVA_BPC_L1_BTB;
-  NOVA_BPC_L1_BPP_IFC  l1_bpp <- mkNOVA_BPC_L1_BPP;
   NOVA_BPC_L2_BTB_IFC  l2_btb <- mkNOVA_BPC_L2_BTB;
+  NOVA_BPC_L0_BPP_IFC  l0_bpp <- mkNOVA_BPC_L0_BPP;
+  NOVA_BPC_L1_BPP_IFC  l1_bpp <- mkNOVA_BPC_L1_BPP;
   NOVA_BPC_L2_BPP_IFC  l2_bpp <- mkNOVA_BPC_L2_BPP;
   NOVA_BPC_RAS_IFC     ras    <- mkNOVA_BPC_RAS;
   NOVA_BPC_ITA_IFC     ita    <- mkNOVA_BPC_ITA;

@@ -78,19 +78,19 @@ typedef struct {
   IFetch_HAddr_t        pc_h;
   Vector#(NOVA_CFG_BPC_FETCH_HW, Br_Class_t) 
                         br_class;
-} BPC_L0_BTB_INFO_ENTRY_t
+} BPC_BTB_INFO_ENTRY_t
 deriving (FShow, Bits);
 
 typedef struct {
   Vector#(NOVA_CFG_BPC_FETCH_HW, Maybe#(BPQ_PRED_HF_POS_t))
                         target_pos;
-} BPC_L0_BTB_MAP_ENTRY_t
+} BPC_BTB_MAP_ENTRY_t
 deriving (FShow, Bits);
 
 typedef struct {
   Vector#(NOVA_CFG_BPC_PRED_HW, Maybe#(PC_t))
                         target_pc;
-} BPC_L0_BTB_ADDR_ENTRY_t
+} BPC_BTB_ADDR_ENTRY_t
 deriving (FShow, Bits);
 
 typedef struct {
@@ -100,11 +100,11 @@ deriving (FShow, Bits);
 
 typedef struct {
   Vector#(2, Maybe#(btb_id_t))  btb_id;
-  Vector#(2, BPC_L0_BTB_INFO_ENTRY_t)
+  Vector#(2, BPC_BTB_INFO_ENTRY_t)
                         btb_info;
-  Vector#(2, BPC_L0_BTB_MAP_ENTRY_t)
+  Vector#(2, BPC_BTB_MAP_ENTRY_t)
                         btb_map;
-  Vector#(2, BPC_L0_BTB_ADDR_ENTRY_t)
+  Vector#(2, BPC_BTB_ADDR_ENTRY_t)
                         btb_addr;
 } BPC_BTB_RSP_t#(type btb_id_t) 
 deriving (FShow, Bits);
@@ -134,26 +134,29 @@ typedef BPC_BPP_RSP_t#(L1_BPP_SIG_t) BPC_L1_BPP_RSP_t;
 typedef BPC_BPP_RSP_t#(L2_BPP_SIG_t) BPC_L2_BPP_RSP_t;
 
 typedef struct {
-  Maybe#(L0_BTB_HF_ID_t)  btb_id;
-  BPC_L0_BTB_INFO_ENTRY_t info;
-  //BPC_L0_BTB_MAP_ENTRY_t  map;
-} BPC_BTB_UPDT_INFO_REQ_ENTRY_t
+  Maybe#(btb_id_t)  btb_id;
+  BPC_BTB_INFO_ENTRY_t info;
+  //BPC_BTB_MAP_ENTRY_t  map;
+} BPC_BTB_UPDT_INFO_REQ_ENTRY_t#(type btb_id_t)
 deriving (FShow, Bits);
 
 typedef struct {
-  Maybe#(L0_BTB_HF_ID_t)  btb_id;
+  Maybe#(btb_id_t)        btb_id;
   IFetch_HAddr_t          pc_h;
-  BPC_L0_BTB_ADDR_ENTRY_t e;
+  BPC_BTB_ADDR_ENTRY_t    e;
   Vector#(NOVA_CFG_BPC_PRED_HW, IFetch_HF_POS_t)
                           target_pos;
-} BPC_BTB_UPDT_ADDR_REQ_ENTRY_t
+} BPC_BTB_UPDT_ADDR_REQ_ENTRY_t#(type btb_id_t)
 deriving (FShow, Bits);
 
 typedef struct {
-  Vector#(2, Maybe#(BPC_BTB_UPDT_INFO_REQ_ENTRY_t)) d;
-  Vector#(2, Maybe#(BPC_BTB_UPDT_ADDR_REQ_ENTRY_t)) a;
-} BPC_BTB_UPDT_REQ_t
+  Vector#(2, Maybe#(BPC_BTB_UPDT_INFO_REQ_ENTRY_t#(btb_id_t))) d;
+  Vector#(2, Maybe#(BPC_BTB_UPDT_ADDR_REQ_ENTRY_t#(btb_id_t))) a;
+} BPC_BTB_UPDT_REQ_t#(type btb_id_t)
 deriving (FShow, Bits);
+typedef BPC_BTB_UPDT_REQ_t#(L0_BTB_HF_ID_t) BPC_L0_BTB_UPDT_REQ_t;
+typedef BPC_BTB_UPDT_REQ_t#(L1_BTB_HF_ID_t) BPC_L1_BTB_UPDT_REQ_t;
+typedef BPC_BTB_UPDT_REQ_t#(L2_BTB_HF_ID_t) BPC_L2_BTB_UPDT_REQ_t;
 
 typedef struct {
   Vector#(2, Maybe#(btb_id_t))     rpl_btb_id; // replaced btb id
@@ -228,53 +231,47 @@ interface NOVA_BPC_BPQ_IFC;
 
 endinterface
 
-interface NOVA_BPC_L0_BTB_IFC;
-  interface Server#(BPC_BTB_REQ_t, BPC_L0_BTB_RSP_t) lkup_server;
-  interface Server#(BPC_BTB_UPDT_REQ_t, BPC_L0_BTB_UPDT_RSP_t) updt_server;
+interface NOVA_BPC_GNRL_BTB_IFC#(numeric type btb_hf_entries, type req_t, type rsp_t, type updt_req_t, type updt_rsp_t);
+  interface Server#(req_t, rsp_t) lkup_server;
+  interface Server#(updt_req_t, updt_rsp_t) updt_server;
 endinterface
 
-interface NOVA_BPC_L0_BPP_IFC;
-  interface Server#(BPC_L0_BPP_REQ_t, BPC_L0_BPP_RSP_t) lkup_server;
-  interface Server#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) updt_server;
+interface NOVA_BPC_GNRL_BPP_IFC#(type req_t, type rsp_t, type updt_req_t, type updt_rsp_t);
+  interface Server#(req_t, rsp_t) lkup_server;
+  interface Server#(updt_req_t, updt_rsp_t) updt_server;
 endinterface
 
-interface NOVA_BPC_L1_BTB_IFC;
-  interface Server#(BPC_BTB_REQ_t, BPC_L1_BTB_RSP_t) lkup_server;
-  interface Server#(BPC_BTB_UPDT_REQ_t, BPC_L1_BTB_UPDT_RSP_t) updt_server;
+interface NOVA_BPC_WRAP_BTB_IFC#(type req_t, type rsp_t, type updt_req_t, type updt_rsp_t);
+  interface Server#(req_t, rsp_t) lkup_server;
+  interface Server#(updt_req_t, updt_rsp_t) updt_server;
 endinterface
 
-interface NOVA_BPC_L1_BPP_IFC;
-  interface Server#(BPC_L1_BPP_REQ_t, BPC_L1_BPP_RSP_t) lkup_server;
-  interface Server#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) updt_server;
+interface NOVA_BPC_WRAP_BPP_IFC#(type req_t, type rsp_t, type updt_req_t, type updt_rsp_t);
+  interface Server#(req_t, rsp_t) lkup_server;
+  interface Server#(updt_req_t, updt_rsp_t) updt_server;
 endinterface
 
-interface NOVA_BPC_L2_BTB_IFC;
-  interface Server#(BPC_BTB_REQ_t, BPC_L2_BTB_RSP_t) lkup_server;
-  interface Server#(BPC_BTB_UPDT_REQ_t, BPC_L2_BTB_UPDT_RSP_t) updt_server;
+typedef NOVA_BPC_GNRL_BTB_IFC#(NOVA_CFG_L0_BTB_HF_ENTRIES, BPC_BTB_REQ_t, BPC_L0_BTB_RSP_t, BPC_L0_BTB_UPDT_REQ_t, BPC_L0_BTB_UPDT_RSP_t) NOVA_BPC_L0_BTB_IFC;
+typedef NOVA_BPC_GNRL_BTB_IFC#(NOVA_CFG_L1_BTB_HF_ENTRIES, BPC_BTB_REQ_t, BPC_L1_BTB_RSP_t, BPC_L1_BTB_UPDT_REQ_t, BPC_L1_BTB_UPDT_RSP_t) NOVA_BPC_L1_BTB_IFC;
+typedef NOVA_BPC_GNRL_BTB_IFC#(NOVA_CFG_L2_BTB_HF_ENTRIES, BPC_BTB_REQ_t, BPC_L2_BTB_RSP_t, BPC_L2_BTB_UPDT_REQ_t, BPC_L2_BTB_UPDT_RSP_t) NOVA_BPC_L2_BTB_IFC;
+
+//typedef NOVA_BPC_WRAP_BTB_IFC#(BPC_BTB_REQ_t, BPC_L0_BTB_RSP_t, BPC_L0_BTB_UPDT_REQ_t, BPC_L0_BTB_UPDT_RSP_t) NOVA_BPC_L0_BTB_IFC;
+//typedef NOVA_BPC_WRAP_BTB_IFC#(BPC_BTB_REQ_t, BPC_L1_BTB_RSP_t, BPC_L1_BTB_UPDT_REQ_t, BPC_L1_BTB_UPDT_RSP_t) NOVA_BPC_L1_BTB_IFC;
+//typedef NOVA_BPC_WRAP_BTB_IFC#(BPC_BTB_REQ_t, BPC_L2_BTB_RSP_t, BPC_L2_BTB_UPDT_REQ_t, BPC_L2_BTB_UPDT_RSP_t) NOVA_BPC_L2_BTB_IFC;
+
+typedef NOVA_BPC_GNRL_BPP_IFC#(BPC_L0_BPP_REQ_t, BPC_L0_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L0_BPP_IFC;
+typedef NOVA_BPC_GNRL_BPP_IFC#(BPC_L1_BPP_REQ_t, BPC_L1_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L1_BPP_IFC;
+typedef NOVA_BPC_GNRL_BPP_IFC#(BPC_L2_BPP_REQ_t, BPC_L2_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L2_BPP_IFC;
+
+interface NOVA_BPC_SPL_IFC#(type req_t, type rsp_t, type alloc_t, type cmt_t);
+  interface Server#(req_t, rsp_t) lkup_server;
+  interface Put#(alloc_t) alloc;
+  interface Put#(cmt_t)   cmt;
 endinterface
 
-interface NOVA_BPC_L2_BPP_IFC;
-  interface Server#(BPC_L2_BPP_REQ_t, BPC_L2_BPP_RSP_t) lkup_server;
-  interface Server#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) updt_server;
-endinterface
-
-interface NOVA_BPC_RAS_IFC;
-  interface Server#(BPC_SPLBP_REQ_t, BPC_SPLBP_RSP_t) lkup_server;
-  interface Put#(BPC_SPLBP_ALLOC_t) alloc;
-  interface Put#(BPC_SPLBP_CMT_t)   cmt;
-endinterface
-
-interface NOVA_BPC_ITA_IFC;
-  interface Server#(BPC_SPLBP_REQ_t, BPC_SPLBP_RSP_t) lkup_server;
-  interface Put#(BPC_SPLBP_ALLOC_t) alloc;
-  interface Put#(BPC_SPLBP_CMT_t)   cmt;
-endinterface
-
-interface NOVA_BPC_LOOP_IFC;
-  interface Server#(BPC_SPLBP_REQ_t, BPC_SPLBP_RSP_t) lkup_server;
-  interface Put#(BPC_SPLBP_ALLOC_t) alloc;
-  interface Put#(BPC_SPLBP_CMT_t)   cmt;
-endinterface
+typedef NOVA_BPC_SPL_IFC#(BPC_SPLBP_REQ_t, BPC_SPLBP_RSP_t, BPC_SPLBP_ALLOC_t, BPC_SPLBP_CMT_t) NOVA_BPC_RAS_IFC;
+typedef NOVA_BPC_SPL_IFC#(BPC_SPLBP_REQ_t, BPC_SPLBP_RSP_t, BPC_SPLBP_ALLOC_t, BPC_SPLBP_CMT_t) NOVA_BPC_ITA_IFC;
+typedef NOVA_BPC_SPL_IFC#(BPC_SPLBP_REQ_t, BPC_SPLBP_RSP_t, BPC_SPLBP_ALLOC_t, BPC_SPLBP_CMT_t) NOVA_BPC_LOOP_IFC;
 
 interface NOVA_BPC_CTRL_IFC;
   interface Put #(BPC_IFC_FBU_Pack_t)  ifc_fbu_intf;
@@ -293,9 +290,9 @@ interface NOVA_BPC_CTRL_IFC;
   interface Client#(BPC_L1_BPP_REQ_t, BPC_L1_BPP_RSP_t) l1_bpp_client;
   interface Client#(BPC_L2_BPP_REQ_t, BPC_L2_BPP_RSP_t) l2_bpp_client;
 
-  interface Client#(BPC_BTB_UPDT_REQ_t, BPC_L0_BTB_UPDT_RSP_t) l0_btb_updt_client;
-  interface Client#(BPC_BTB_UPDT_REQ_t, BPC_L1_BTB_UPDT_RSP_t) l1_btb_updt_client;
-  interface Client#(BPC_BTB_UPDT_REQ_t, BPC_L2_BTB_UPDT_RSP_t) l2_btb_updt_client;
+  interface Client#(BPC_L0_BTB_UPDT_REQ_t, BPC_L0_BTB_UPDT_RSP_t) l0_btb_updt_client;
+  interface Client#(BPC_L1_BTB_UPDT_REQ_t, BPC_L1_BTB_UPDT_RSP_t) l1_btb_updt_client;
+  interface Client#(BPC_L2_BTB_UPDT_REQ_t, BPC_L2_BTB_UPDT_RSP_t) l2_btb_updt_client;
 
   interface Client#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t)    l0_bpp_updt_client;
   interface Client#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t)    l1_bpp_updt_client;
