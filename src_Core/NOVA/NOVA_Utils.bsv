@@ -13,6 +13,8 @@ interface GPCvt#(type a_type);
   method Action deq();
   method a_type first();
   method Bool hsked();
+  method Bool deq_ready();
+  method Bool enq_valid();
 endinterface
 
 module mkGPCvt (GPCvt#(a_type))
@@ -20,11 +22,11 @@ module mkGPCvt (GPCvt#(a_type))
 
   Wire#(a_type) data <- mkDWire(unpack(fromInteger(valueOf(0))));
   PulseWire     deq_evt <- mkPulseWire;
-  PulseWire     hsk_evt <- mkPulseWire;
+  PulseWire     enq_evt <- mkPulseWire;
 
-  method Action enq( a_type x) if (deq_evt);
+  method Action enq( a_type x);
     data <= x;
-    hsk_evt.send();
+    enq_evt.send();
   endmethod
 
   method Action deq();
@@ -36,9 +38,47 @@ module mkGPCvt (GPCvt#(a_type))
   endmethod
 
   method Bool hsked();
-    return hsk_evt;
+    return enq_evt && deq_evt;
+  endmethod
+
+  method Bool enq_valid();
+    return enq_evt;
+  endmethod
+
+  method Bool deq_ready();
+    return deq_evt;
   endmethod
 endmodule
+
+//module mkGPSizedCvt#(Integer x) (GPCvt#(a_type))
+//  provisos( Bits#(a_type, sa));
+//
+//  FIFO#(a_type) fifo <- mkBypassSizedFIFO(x); 
+//  PulseWire     deq_evt <- mkPulseWire;
+//  PulseWire     enq_evt <- mkPulseWire;
+//
+//  method Action enq( a_type x);
+//    fifo.enq(x);
+//    enq_evt.send();
+//  endmethod
+//
+//  method Action deq();
+//    fifo.deq();
+//    deq_evt.send();
+//  endmethod
+//
+//  method a_type first();
+//    return fifo.first();
+//  endmethod
+//
+//  method Bool enq_hsked();
+//    return enq_evt;
+//  endmethod
+//
+//  method Bool deq_hsked();
+//    return deq_evt;
+//  endmethod
+//endmodule
 
 instance ToPut #(GPCvt#(a), a);
   function Put#(a) toPut (GPCvt#(a) i);

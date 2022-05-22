@@ -52,7 +52,7 @@ TOPMODULE ?= mkTop_HW_Side
 BSC_COMPILATION_FLAGS += \
 	-keep-fires -aggressive-conditions -no-warn-action-shadowing -no-show-timestamps -check-assert \
 	-suppress-warnings G0020    \
-	+RTS -K128M -RTS  -show-range-conflict
+	+RTS -K2G -RTS  -show-range-conflict
 
 # ================================================================
 # Runs simulation executable on ELF given by EXAMPLE
