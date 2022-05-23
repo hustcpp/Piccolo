@@ -20,7 +20,8 @@ typedef TDiv#(NOVA_CFG_BPC_FETCH_W,2)              NOVA_CFG_BPC_FETCH_HW;
 typedef TMul#(NOVA_CFG_BPC_FETCH_W,4)              NOVA_CFG_BPC_FETCH_BYTES;
 typedef TSub#(TLog#(NOVA_CFG_BPC_FETCH_BYTES), 1)  NOVA_CFG_BPC_FETCH_AW;
 typedef TSub#(NOVA_CFG_BPC_FETCH_AW,1)             NOVA_CFG_BPC_FETCH_HID;
-typedef  Bit #(TSub#(PC_W, NOVA_CFG_BPC_FETCH_AW)) IFetch_HAddr_t;
+typedef TSub#(PC_W, NOVA_CFG_BPC_FETCH_AW)         IFetch_HAddr_w;
+typedef  Bit #(IFetch_HAddr_w)                     IFetch_HAddr_t;
 typedef  Bit #(NOVA_CFG_BPC_FETCH_AW)              IFetch_LAddr_t;
 typedef  Bit #(NOVA_CFG_BPC_FETCH_HID)             IFetch_HF_POS_t;
 
@@ -38,7 +39,7 @@ typedef  Bit #(NOVA_CFG_BPC_PRED_ID_HW)  BPQ_PRED_HF_POS_t;
 `ifdef NOVA_CFG_BPC_BHT_W
 typedef `NOVA_CFG_BPC_BHT_W  NOVA_CFG_BPC_BHT_W;
 `else
-typedef 32  NOVA_CFG_BPC_BHT_W;
+typedef 128  NOVA_CFG_BPC_BHT_W;
 `endif
 typedef  Bit #(NOVA_CFG_BPC_BHT_W)              BPC_BHT_t;
 
@@ -108,13 +109,13 @@ typedef  Bit #(NOVA_CFG_L2_BTB_ID_HW)      L2_BTB_HF_ID_t;
 `ifdef NOVA_CFG_L0_BPP_ENTRIES
 typedef `NOVA_CFG_L0_BPP_ENTRIES NOVA_CFG_L0_BPP_ENTRIES;
 `else
-typedef 16  NOVA_CFG_L0_BPP_ENTRIES;
+typedef 64  NOVA_CFG_L0_BPP_ENTRIES;
 `endif
 typedef TDiv#(NOVA_CFG_L0_BPP_ENTRIES,2)  NOVA_CFG_L0_BPP_HF_ENTRIES;
 typedef TLog#(NOVA_CFG_L0_BPP_ENTRIES) NOVA_CFG_L0_BPP_IDX;
 typedef TSub#(NOVA_CFG_L0_BPP_IDX,1)   NOVA_CFG_L0_BPP_HF_IDX;
-typedef  Bit #(NOVA_CFG_L0_BPP_HF_IDX) L0_BPP_HF_IDX_t;
-typedef  NOVA_CFG_L0_BPP_IDX NOVA_CFG_L0_BPP_SIG_W;
+typedef  Bit #(NOVA_CFG_L0_BPP_HF_IDX) L0_BPP_HF_ID_t;
+typedef  NOVA_CFG_L0_BPP_HF_IDX NOVA_CFG_L0_BPP_SIG_W;
 typedef  Bit #(NOVA_CFG_L0_BPP_SIG_W)     L0_BPP_SIG_t;
 typedef  L0_BPP_SIG_t  ITB_BP_SIG_t;
 
@@ -122,25 +123,25 @@ typedef  L0_BPP_SIG_t  ITB_BP_SIG_t;
 `ifdef NOVA_CFG_L1_BPP_ENTRIES
 typedef `NOVA_CFG_L1_BPP_ENTRIES NOVA_CFG_L1_BPP_ENTRIES;
 `else
-typedef 64  NOVA_CFG_L1_BPP_ENTRIES;
+typedef 2048  NOVA_CFG_L1_BPP_ENTRIES;
 `endif
 typedef TDiv#(NOVA_CFG_L1_BPP_ENTRIES,2)  NOVA_CFG_L1_BPP_HF_ENTRIES;
 typedef TLog#(NOVA_CFG_L1_BPP_ENTRIES) NOVA_CFG_L1_BPP_IDX;
 typedef TSub#(NOVA_CFG_L1_BPP_IDX,1)   NOVA_CFG_L1_BPP_HF_IDX;
-typedef  Bit #(NOVA_CFG_L1_BPP_HF_IDX) L1_BPP_HF_IDX_t;
-typedef NOVA_CFG_L1_BPP_IDX NOVA_CFG_L1_BPP_SIG_W;
+typedef  Bit #(NOVA_CFG_L1_BPP_HF_IDX) L1_BPP_HF_ID_t;
+typedef NOVA_CFG_L1_BPP_HF_IDX NOVA_CFG_L1_BPP_SIG_W;
 typedef  Bit #(NOVA_CFG_L1_BPP_SIG_W)     L1_BPP_SIG_t;
 
 `ifdef NOVA_CFG_L2_BPP_ENTRIES
 typedef `NOVA_CFG_L2_BPP_ENTRIES NOVA_CFG_L2_BPP_ENTRIES;
 `else
-typedef 16  NOVA_CFG_L2_BPP_ENTRIES;
+typedef 16384  NOVA_CFG_L2_BPP_ENTRIES;
 `endif
 typedef TDiv#(NOVA_CFG_L2_BPP_ENTRIES,2)  NOVA_CFG_L2_BPP_HF_ENTRIES;
 typedef TLog#(NOVA_CFG_L2_BPP_ENTRIES) NOVA_CFG_L2_BPP_IDX;
 typedef TSub#(NOVA_CFG_L2_BPP_IDX,1)   NOVA_CFG_L2_BPP_HF_IDX;
-typedef  Bit #(NOVA_CFG_L2_BPP_HF_IDX) L2_BPP_HF_IDX_t;
-typedef NOVA_CFG_L2_BPP_IDX NOVA_CFG_L2_BPP_SIG_W;
+typedef  Bit #(NOVA_CFG_L2_BPP_HF_IDX) L2_BPP_HF_ID_t;
+typedef NOVA_CFG_L2_BPP_HF_IDX NOVA_CFG_L2_BPP_SIG_W;
 typedef  Bit #(NOVA_CFG_L2_BPP_SIG_W)     L2_BPP_SIG_t;
 
 

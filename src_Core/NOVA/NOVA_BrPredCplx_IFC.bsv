@@ -243,7 +243,13 @@ interface NOVA_BPC_GNRL_BTB_IFC#(numeric type odly,
   interface Server#(updt_req_t, updt_rsp_t) updt_server;
 endinterface
 
-interface NOVA_BPC_GNRL_BPP_IFC#(type req_t, type rsp_t, type updt_req_t, type updt_rsp_t);
+interface NOVA_BPC_GNRL_BPP_IFC#(numeric type odly, 
+                                 numeric type impl,
+                                 numeric type btb_hf_entries, 
+                                 type req_t, 
+                                 type rsp_t, 
+                                 type updt_req_t, 
+                                 type updt_rsp_t);
   interface Server#(req_t, rsp_t) lkup_server;
   interface Server#(updt_req_t, updt_rsp_t) updt_server;
 endinterface
@@ -252,9 +258,9 @@ typedef NOVA_BPC_GNRL_BTB_IFC#(0, 0, NOVA_CFG_L0_BTB_HF_ENTRIES, NOVA_CFG_L0_BTB
 typedef NOVA_BPC_GNRL_BTB_IFC#(1, 0, NOVA_CFG_L1_BTB_HF_ENTRIES, 4,  BPC_BTB_REQ_t, BPC_L1_BTB_RSP_t, BPC_L1_BTB_UPDT_REQ_t, BPC_L1_BTB_UPDT_RSP_t) NOVA_BPC_L1_BTB_IFC;
 typedef NOVA_BPC_GNRL_BTB_IFC#(2, 0, NOVA_CFG_L2_BTB_HF_ENTRIES, 16, BPC_BTB_REQ_t, BPC_L2_BTB_RSP_t, BPC_L2_BTB_UPDT_REQ_t, BPC_L2_BTB_UPDT_RSP_t) NOVA_BPC_L2_BTB_IFC;
 
-typedef NOVA_BPC_GNRL_BPP_IFC#(BPC_L0_BPP_REQ_t, BPC_L0_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L0_BPP_IFC;
-typedef NOVA_BPC_GNRL_BPP_IFC#(BPC_L1_BPP_REQ_t, BPC_L1_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L1_BPP_IFC;
-typedef NOVA_BPC_GNRL_BPP_IFC#(BPC_L2_BPP_REQ_t, BPC_L2_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L2_BPP_IFC;
+typedef NOVA_BPC_GNRL_BPP_IFC#(0, 0, NOVA_CFG_L0_BPP_HF_ENTRIES, BPC_L0_BPP_REQ_t, BPC_L0_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L0_BPP_IFC;
+typedef NOVA_BPC_GNRL_BPP_IFC#(1, 0, NOVA_CFG_L1_BPP_HF_ENTRIES, BPC_L1_BPP_REQ_t, BPC_L1_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L1_BPP_IFC;
+typedef NOVA_BPC_GNRL_BPP_IFC#(2, 0, NOVA_CFG_L2_BPP_HF_ENTRIES, BPC_L2_BPP_REQ_t, BPC_L2_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L2_BPP_IFC;
 
 interface NOVA_BPC_SPL_IFC#(type req_t, type rsp_t, type alloc_t, type cmt_t);
   interface Server#(req_t, rsp_t) lkup_server;
