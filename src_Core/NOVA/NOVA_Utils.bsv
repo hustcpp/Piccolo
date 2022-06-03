@@ -126,4 +126,77 @@ module mkLRU (LRU#(len));
   endmethod
 endmodule
 
+interface Que#(numeric type entries, type data_t);
+  method data_t front();
+  method data_t last();
+  method Bool empty();
+  method Bool not_empty();
+  method Bool full();
+  method Action deq_front();
+  method Action deq_last();
+  method Action enq(data_t val);
+endinterface
+
+module mkSizedQue (Que#(entries, data_t))
+  provisos (Bits#(data_t, data_width),
+            Log#(entries, idw));
+  Vector#(entries, Reg#(data_t)) q <- replicateM(mkRegA(unpack(0)));
+  Reg#(Bit#(idw)) rd_ptr <- mkRegA(0);
+  Reg#(Bit#(idw)) ft_ptr <- mkRegA(0);
+  Reg#(Bit#(idw)) wr_ptr <- mkRegA(0);
+  Reg#(Bool)      full_r <- mkRegA(False);
+  PulseWire       deq_front_evt <- mkPulseWire();
+  PulseWire       deq_last_evt  <- mkPulseWire();
+  RWire#(data_t)  enq_evt       <- mkRWireSBR();
+  
+  Bool is_empty     = rd_ptr != wr_ptr || full_r;
+  Bool is_not_empty = !is_empty;
+
+  rule rl_handle_enq_deq;
+    Bool has_deq = deq_front_evt || deq_last_evt;
+    Bool has_enq = isValid(enq_evt.wget());
+    Bit#(idw) ft_ptr_nxt = ft_ptr;
+    Bit#(idw) rd_ptr_nxt = rd_ptr;
+    Bit#(idw) wr_ptr_nxt = wr_ptr;
+    Bool can_enq = is_not_empty || has_deq;
+    
+    if (deq_front_evt && can_enq)
+    begin
+      ft_ptr_nxt = ft_ptr - 1;
+      wr_ptr_nxt = ft_ptr;
+    end
+    if (deq_last_evt && can_enq)
+    begin
+      rd_ptr_nxt = rd_ptr + 1;
+    end
+    if (enq_evt.wget() matches tagged Valid .enq_data &&& !full_r)
+    begin
+      q[wr_ptr] <= enq_data;
+      wr_ptr_nxt = wr_ptr + 1;
+      if (!has_deq && rd_ptr_nxt == wr_ptr_nxt)
+        full_r <= True;
+    end else if (has_deq && !has_enq) begin
+      full_r <= False;
+    end
+  endrule
+
+  method Action deq_front() if (is_not_empty);
+    deq_front_evt.send();
+  endmethod
+
+  method Action deq_last() if (is_not_empty);
+    deq_last_evt.send();
+  endmethod
+  
+  method Action enq(data_t val) if (!full_r);
+    enq_evt.wset(val);
+  endmethod
+  
+  method front     = q[ft_ptr];
+  method last      = q[rd_ptr];
+  method full      = full_r;
+  method empty     = is_empty;
+  method not_empty = is_not_empty;
+endmodule
+
 endpackage

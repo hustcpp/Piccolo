@@ -7,7 +7,6 @@ package NOVA_BrPred_CTRL;
 // Exports
 
 export mkNOVA_BPC_CTRL;
-export mkNOVA_BPC_RAS;
 export mkNOVA_BPC_ITA;
 export mkNOVA_BPC_LOOP;
 
@@ -39,24 +38,6 @@ import CPU_Globals :: *;
 import NOVA_Decls :: *;
 import NOVA_Utils :: *;
 import NOVA_BrPredCplx_IFC     :: *;
-
-(* synthesize *)
-module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
-  // ----------------
-  // Instances
-
-  // ----------------
-  // States
-
-  // ----------------
-  // Rules 
-
-  // ----------------
-  // method
-
-  // ----------------
-  // Interfaces
-endmodule: mkNOVA_BPC_RAS
 
 (* synthesize *)
 module mkNOVA_BPC_ITA (NOVA_BPC_ITA_IFC);

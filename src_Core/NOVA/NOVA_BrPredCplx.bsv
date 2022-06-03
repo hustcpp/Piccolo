@@ -39,6 +39,7 @@ import NOVA_BrPredCplx_IFC     :: *;
 import NOVA_BrPred_BPQ         :: *;
 import NOVA_BrPred_BTB         :: *;
 import NOVA_BrPred_BPP         :: *;
+import NOVA_BrPred_RAS         :: *;
 import NOVA_BrPred_CTRL        :: *;
 
 (* synthesize *)

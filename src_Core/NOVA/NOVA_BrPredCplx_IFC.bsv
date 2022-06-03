@@ -180,20 +180,21 @@ typedef struct {
 deriving (FShow, Bits);
 
 typedef struct {
-  Vector#(2, IFetch_HAddr_t) pc_h;
+  IFetch_HAddr_t        pc_h;
   IFetch_LAddr_t        pc_os;
   BPC_BHT_t             ght;
-  Vector#(NOVA_CFG_BPC_FETCH_W, Br_Class_t) 
-                        br_class;
 } BPC_SPLBP_REQ_t
 deriving (FShow, Bits);
 
 typedef struct {
   Bool                  taken;
-  IFetch_LAddr_t        pc_os;
   PC_t                  target_pc;
-} BPC_SPLBP_RSP_t 
+  id_t                  id;
+} BPC_SPLBP_RSP_t#(type id_t)
 deriving (FShow, Bits);
+typedef BPC_SPLBP_RSP_t#(RAS_OSQ_ID_t)  BPC_RAS_RSP_t;
+typedef BPC_SPLBP_RSP_t#(LOOP_OSQ_ID_t) BPC_LOOP_RSP_t;
+typedef BPC_SPLBP_RSP_t#(ITA_OSQ_ID_t)  BPC_ITA_RSP_t;
 
 typedef struct {
   IFetch_HAddr_t        pc_h;
@@ -204,9 +205,14 @@ typedef struct {
 deriving (FShow, Bits);
 
 typedef struct {
-  Bool                  flush;
-} BPC_SPLBP_CMT_t
+  Bool                  excp;
+  Bool                  commit;
+  Maybe#(id_t)          flush;
+} BPC_SPLBP_CMT_t#(type id_t)
 deriving (FShow, Bits);
+typedef BPC_SPLBP_CMT_t#(RAS_OSQ_ID_t)  BPC_RAS_CMT_t;
+typedef BPC_SPLBP_CMT_t#(LOOP_OSQ_ID_t) BPC_LOOP_CMT_t;
+typedef BPC_SPLBP_CMT_t#(ITA_OSQ_ID_t)  BPC_ITA_CMT_t;
 
 typedef struct {
   PC_t                  excp_base;
@@ -268,9 +274,9 @@ interface NOVA_BPC_SPL_IFC#(type req_t, type rsp_t, type alloc_t, type cmt_t);
   interface Put#(cmt_t)   cmt;
 endinterface
 
-typedef NOVA_BPC_SPL_IFC#(BPC_SPLBP_REQ_t, BPC_SPLBP_RSP_t, BPC_SPLBP_ALLOC_t, BPC_SPLBP_CMT_t) NOVA_BPC_RAS_IFC;
-typedef NOVA_BPC_SPL_IFC#(BPC_SPLBP_REQ_t, BPC_SPLBP_RSP_t, BPC_SPLBP_ALLOC_t, BPC_SPLBP_CMT_t) NOVA_BPC_ITA_IFC;
-typedef NOVA_BPC_SPL_IFC#(BPC_SPLBP_REQ_t, BPC_SPLBP_RSP_t, BPC_SPLBP_ALLOC_t, BPC_SPLBP_CMT_t) NOVA_BPC_LOOP_IFC;
+typedef NOVA_BPC_SPL_IFC#(BPC_SPLBP_REQ_t, BPC_RAS_RSP_t  , BPC_SPLBP_ALLOC_t, BPC_RAS_CMT_t  ) NOVA_BPC_RAS_IFC;
+typedef NOVA_BPC_SPL_IFC#(BPC_SPLBP_REQ_t, BPC_ITA_RSP_t  , BPC_SPLBP_ALLOC_t, BPC_ITA_CMT_t  ) NOVA_BPC_ITA_IFC;
+typedef NOVA_BPC_SPL_IFC#(BPC_SPLBP_REQ_t, BPC_LOOP_RSP_t , BPC_SPLBP_ALLOC_t, BPC_LOOP_CMT_t ) NOVA_BPC_LOOP_IFC;
 
 interface NOVA_BPC_CTRL_IFC;
   interface Put #(BPC_IFC_FBU_Pack_t)  ifc_fbu_intf;
@@ -297,17 +303,17 @@ interface NOVA_BPC_CTRL_IFC;
   interface Client#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t)    l1_bpp_updt_client;
   interface Client#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t)    l2_bpp_updt_client;
 
-  interface Client#(BPC_SPLBP_REQ_t, BPC_SPLBP_RSP_t)    ras_lkup_client;
+  interface Client#(BPC_SPLBP_REQ_t, BPC_RAS_RSP_t)      ras_lkup_client;
   interface Get#(BPC_SPLBP_ALLOC_t)                      ras_alloc;
-  interface Get#(BPC_SPLBP_CMT_t)                        ras_cmt;
+  interface Get#(BPC_RAS_CMT_t)                          ras_cmt;
 
-  interface Client#(BPC_SPLBP_REQ_t, BPC_SPLBP_RSP_t)    ita_lkup_client;
+  interface Client#(BPC_SPLBP_REQ_t, BPC_ITA_RSP_t)      ita_lkup_client;
   interface Get#(BPC_SPLBP_ALLOC_t)                      ita_alloc;
-  interface Get#(BPC_SPLBP_CMT_t)                        ita_cmt;
+  interface Get#(BPC_ITA_CMT_t)                          ita_cmt;
 
-  interface Client#(BPC_SPLBP_REQ_t, BPC_SPLBP_RSP_t)    loop_lkup_client;
+  interface Client#(BPC_SPLBP_REQ_t, BPC_LOOP_RSP_t)     loop_lkup_client;
   interface Get#(BPC_SPLBP_ALLOC_t)                      loop_alloc;
-  interface Get#(BPC_SPLBP_CMT_t)                        loop_cmt;
+  interface Get#(BPC_LOOP_CMT_t)                         loop_cmt;
 endinterface
 
 interface NOVA_BrPredCplx_IFC;
