@@ -2,12 +2,11 @@
 // ================================================================
 // Branch Prediction Complex
 
-package NOVA_BrPred_CTRL;
+package NOVA_BrPred_LOOP;
 // ================================================================
 // Exports
 
-export mkNOVA_BPC_CTRL;
-export mkNOVA_BPC_ITA;
+export mkNOVA_BPC_LOOP;
 
 // ================================================================
 // BSV library imports
@@ -38,10 +37,31 @@ import NOVA_Decls :: *;
 import NOVA_Utils :: *;
 import NOVA_BrPredCplx_IFC     :: *;
 
+typedef  Bit #(14)      Loop_Cnt_t;
+typedef struct {
+  Loop_Cnt_t            max_cnt;
+  Loop_Cnt_t            spec_cnt;
+} BPC_LOOP_Pack_t
+deriving (FShow, Bits);
+
+typedef struct {
+  LOOP_SET_ID_t         set;
+  LOOP_ASSO_ID_t        asso;
+  Bool                  flushed;
+} BPC_LOOP_OSQ_Pack_t
+deriving (FShow, Bits);
+
+typedef TSub#(NOVA_CFG_LOOP_OSQ_ENTRIES, 1)  NOVA_CFG_LOOP_OSQ_ENTRIES_MAX;
+
 (* synthesize *)
-module mkNOVA_BPC_ITA (NOVA_BPC_ITA_IFC);
+module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
   // ----------------
   // Instances
+  SpCache#(NOVA_CFG_LOOP_ENTRIES, NOVA_CFG_LOOP_ASSO, BPC_LOOP_Pack_t, PC_t, LOOP_SET_ID_t, LOOP_ASSO_ID_t) 
+                            cnt_cache <- mkSpCache;
+  RegFile#(LOOP_OSQ_ID_t, BPC_LOOP_OSQ_Pack_t) 
+                            osq <- mkRegFile(0, fromInteger(valueOf(NOVA_CFG_LOOP_OSQ_ENTRIES_MAX)));
+
 
   // ----------------
   // States
@@ -54,34 +74,6 @@ module mkNOVA_BPC_ITA (NOVA_BPC_ITA_IFC);
 
   // ----------------
   // Interfaces
-endmodule: mkNOVA_BPC_ITA
-
-(* synthesize *)
-module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
-  // ----------------
-  // Instances
-  FIFOF #(BPC_IFC_FBU_Pack_t)  ifc_fbu_fifo <- mkFIFOF;
-  Vector#(NOVA_CFG_BRU_N, FIFOF #(EXU_BPC_BCU_Pack_t))  exu_bcu_fifos <- replicateM(mkFIFOF);
-  FIFOF #(ROB_BPC_CMT_Pack_t)  rob_cmt_fifo <- mkFIFOF;
-  FIFOF #(ROB_BPC_EXCP_Pack_t) rob_excp_fifo <- mkFIFOF;
-  FIFOF #(BPC_IFC_ITBF_Pack_t) itb_flush_fifo <- mkFIFOF;
-
-  // ----------------
-  // States
-
-  // ----------------
-  // Rules 
-
-  // ----------------
-  // method
-
-  // ----------------
-  // Interfaces
-  interface ifc_fbu_intf = toPut(ifc_fbu_fifo);
-  interface exu_bcu_intfs = map(toGet, exu_bcu_fifos);
-  interface rob_cmt_intf  = toPut(rob_cmt_fifo);
-  interface rob_excp_intf = toPut(rob_excp_fifo);
-  interface itb_flush_intf = toPut(itb_flush_fifo);
-endmodule: mkNOVA_BPC_CTRL
+endmodule: mkNOVA_BPC_LOOP
 
 endpackage
