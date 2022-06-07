@@ -7,7 +7,6 @@ package NOVA_BrPred_CTRL;
 // Exports
 
 export mkNOVA_BPC_CTRL;
-export mkNOVA_BPC_ITA;
 
 // ================================================================
 // BSV library imports
@@ -37,24 +36,6 @@ import CPU_Globals :: *;
 import NOVA_Decls :: *;
 import NOVA_Utils :: *;
 import NOVA_BrPredCplx_IFC     :: *;
-
-(* synthesize *)
-module mkNOVA_BPC_ITA (NOVA_BPC_ITA_IFC);
-  // ----------------
-  // Instances
-
-  // ----------------
-  // States
-
-  // ----------------
-  // Rules 
-
-  // ----------------
-  // method
-
-  // ----------------
-  // Interfaces
-endmodule: mkNOVA_BPC_ITA
 
 (* synthesize *)
 module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
