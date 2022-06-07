@@ -193,7 +193,7 @@ typedef struct {
 } BPC_SPLBP_RSP_t#(type id_t)
 deriving (FShow, Bits);
 typedef BPC_SPLBP_RSP_t#(RAS_OSQ_ID_t)  BPC_RAS_RSP_t;
-typedef BPC_SPLBP_RSP_t#(LOOP_OSQ_ID_t) BPC_LOOP_RSP_t;
+typedef BPC_SPLBP_RSP_t#(LOOP_ID_t)     BPC_LOOP_RSP_t;
 typedef BPC_SPLBP_RSP_t#(ITA_OSQ_ID_t)  BPC_ITA_RSP_t;
 
 typedef struct {
@@ -211,7 +211,7 @@ typedef struct {
 } BPC_SPLBP_CMT_t#(type id_t)
 deriving (FShow, Bits);
 typedef BPC_SPLBP_CMT_t#(RAS_OSQ_ID_t)  BPC_RAS_CMT_t;
-typedef BPC_SPLBP_CMT_t#(LOOP_OSQ_ID_t) BPC_LOOP_CMT_t;
+typedef BPC_SPLBP_CMT_t#(LOOP_ID_t)     BPC_LOOP_CMT_t;
 typedef BPC_SPLBP_CMT_t#(ITA_OSQ_ID_t)  BPC_ITA_CMT_t;
 
 typedef struct {

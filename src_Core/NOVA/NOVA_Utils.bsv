@@ -227,13 +227,14 @@ module mkSpCache (SpCache#(entries, asso, data_t, addr_t, idx_t, asso_t))
             Add#(idx_width, tag_width, addr_width),
             Alias#(tag_t, Bit#(tag_width)),
             Add#(idx_diff_width, idx_min_width, idx_width),
-            Add#(asso_diff_width, asso_min_width, asso_width)
+            Add#(asso_diff_width, asso_min_width, asso_width),
+            Add#(asso_lsb_diff, asso_width, 16)
             );
 
 
   RegFile#(idx_t, Vector#(asso, data_t))                 data_ram <- mkRegFile(0, fromInteger(valueOf(sets_max)));
   RegFile#(idx_t, Vector#(asso, SpC_tag_pack_t#(tag_t))) tag_ram  <- mkRegFile(0, fromInteger(valueOf(sets_max)));
-  LFSR#(asso_t) asso_sel <- mkFeedLFSR(fromInteger(9));
+  LFSR#(Bit#(16)) asso_sel <- mkLFSR_16;
 
   rule rl_handle_find_hit;
   endrule
@@ -267,7 +268,7 @@ module mkSpCache (SpCache#(entries, asso, data_t, addr_t, idx_t, asso_t))
   function Action i_write_cache(idx_t idx, asso_t asso_in, data_t data, Vector#(asso, data_t) data_rd);
   action
     Vector#(asso, data_t) data_nxt = data_rd;
-    asso_t asso_sel = asso_in >= fromInteger(valueOf(asso)) ? 0 : asso_in;
+    asso_t asso_sel = {1'b0, asso_in} >= fromInteger(valueOf(asso)) ? 0 : asso_in;
     data_nxt[asso_sel] = data;
     data_ram.upd(idx, data_nxt);
   endaction
@@ -294,7 +295,8 @@ module mkSpCache (SpCache#(entries, asso, data_t, addr_t, idx_t, asso_t))
       i_write_cache(idx, asso_v, data, data_rd);
     else
     begin
-      asso_t asso_rpl = asso_sel.value;
+      Bit#(16) asso_rpl_t = asso_sel.value;
+      asso_t asso_rpl = truncate(asso_rpl_t);
       asso_sel.next;
       i_write_cache(idx, asso_rpl, data, data_rd);
     end
@@ -331,7 +333,9 @@ interface FIFOMgr#(numeric type entries, type addr_t);
   method addr_t get_rd();
   method addr_t get_wr();
   method Action inc_rd();
+  method Action inc_rd_nb();
   method Action inc_wr();
+  method Action inc_wr_nb();
 endinterface
 
 module mkFIFOMgr (FIFOMgr#(entries, addr_t))
@@ -387,14 +391,30 @@ module mkFIFOMgr (FIFOMgr#(entries, addr_t))
     return valid;
   endmethod
 
-  method Action inc_rd();
+  method Action inc_rd() if (valid);
     rd_r <= rd_p1;
     free_evt.send();
+  endmethod
+
+  method Action inc_rd_nb();
+    if (valid)
+    begin
+      rd_r <= rd_p1;
+      free_evt.send();
+    end
   endmethod
 
   method Action inc_wr() if (!full);
     wr_r <= wr_p1;
     alloc_evt.send();
+  endmethod
+
+  method Action inc_wr_nb();
+    if (!full)
+    begin
+      wr_r <= wr_p1;
+      alloc_evt.send();
+    end
   endmethod
 
   method addr_t get_rd();
@@ -408,6 +428,7 @@ module mkFIFOMgr (FIFOMgr#(entries, addr_t))
 endmodule
 
 interface FreeQueMgr#(numeric type entries, type addr_t);
+  method Bool   is_valid(addr_t addr);
   method Bool   is_full();
   method Bool   is_empty();
   method Bool   is_not_empty();
@@ -465,6 +486,10 @@ module mkFreeQueMgr (FreeQueMgr#(entries, addr_t))
   method Action free_multi_entry(Bit#(entries) free_entries);
     Bit#(entries) vld_nxt = vld ^ free_entries;
     vld_r <= vld_nxt;
+  endmethod
+
+  method Bool   is_valid(addr_t addr);
+    return vld[addr] == 1'b1;
   endmethod
 
 endmodule

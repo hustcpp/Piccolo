@@ -64,6 +64,8 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
   GPCvt #(BPC_SPLBP_ALLOC_t)              alloc_agent <- mkGPCvt;
   GPCvt #(BPC_RAS_CMT_t)                  cmt_agent   <- mkGPCvt;
   
+  Wire#(RAS_PID_t)                        retire_pid   <- mkWire;
+  Wire#(Bit#(NOVA_CFG_RAS_OSQ_ENTRIES))   osq_call     <- mkWire;
 
   // ----------------
   // States
@@ -74,13 +76,11 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
   RAS_OSQ_ID_t                          osq_rd    = osq_mgr.get_rd;
   RAS_OSQ_ID_t                          osq_wr    = osq_mgr.get_wr;
 
-  Bit#(NOVA_CFG_RAS_OSQ_ENTRIES) osq_call  = osq_call_r;
   Bit#(NOVA_CFG_RAS_OSQ_ENTRIES) osq_flush = osq_flush_r;
   RAS_PID_t              pras_top = pras_top_r;
   Bool      pras_full    = pras_mgr.is_full;
   Bool      pras_empty   = pras_mgr.is_empty;
   PC_t      pc_top       = pras_r.sub(pras_top);
-  RAS_PID_t retire_pid   = osq_pid_r.sub(osq_rd);
   Bool      retire_call  = osq_call[osq_rd] == 1'b1;
   Bool      retire_flush = osq_flush[osq_rd] == 1'b1;
 
@@ -103,6 +103,11 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
   endaction
   endfunction
 
+  rule rl_reg_read;
+    retire_pid   <= osq_pid_r.sub(osq_rd);
+    osq_call     <= osq_call_r;
+  endrule
+
   (* descending_urgency = "rl_handle_alloc, rl_handle_lkup" *)
 
   rule rl_handle_alloc;
@@ -116,7 +121,7 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
     BPC_RAS_RSP_t rspv = unpack(fromInteger(0));
     req_agent.deq();
     new_ret();
-    rspv.taken      = True && !pras_empty;
+    rspv.taken      = !pras_empty;
     rspv.id         = osq_wr;
     rspv.target_pc  = pc_top;
     rsp_agent.enq(rspv);
@@ -131,7 +136,7 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
     if (reqv.flush matches tagged Valid .flush_id)
     begin
       // mark osq entries as flushed
-      for (Integer i = 0; i < valueOf(NOVA_CFG_RAS_P_ENTRIES); i=i+1)
+      for (Integer i = 0; i < valueOf(NOVA_CFG_RAS_OSQ_ENTRIES); i=i+1)
       begin
         RAS_OSQ_ID_t ii = fromInteger(i);
         if (osq_mgr.is_valid(ii, flush_id))
@@ -142,18 +147,18 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
 
     if (reqv.commit || reqv.excp)
     begin
-      if (retire_flush)
+      osq_flush_nxt[osq_rd] = 1'b0;
+      if (!retire_flush)
       begin
-        osq_flush_nxt[osq_rd] = 1'b0;
+        if (reqv.commit)
+        begin
+          cmt_agent.deq();
+        end
+        else if (reqv.excp)
+        begin
+          cmt_agent.deq();
+        end
       end 
-      else if (reqv.commit)
-      begin
-        cmt_agent.deq();
-      end
-      else if (reqv.excp)
-      begin
-        cmt_agent.deq();
-      end
 
       // freeup osq rd
       osq_rd_inc = True;
@@ -192,7 +197,7 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
     end
     
     if (osq_rd_inc)
-        osq_mgr.inc_rd;
+        osq_mgr.inc_rd_nb;
     pras_mgr.free_multi_entry(free_entry);
     osq_flush_r <= osq_flush_nxt;
   endrule
