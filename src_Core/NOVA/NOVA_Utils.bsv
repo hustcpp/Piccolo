@@ -204,7 +204,7 @@ endmodule
 interface SpCache#(numeric type entries, numeric type asso, type data_t, type addr_t, type idx_t, type asso_t);
   method Maybe#(data_t) rd_data(addr_t addr);
   method data_t rd_data_direct(idx_t idx, asso_t asso_v);
-  method Action write_data(addr_t addr, data_t data);
+  method Action wr_data(addr_t addr, data_t data);
   method Maybe#(asso_t) find_hit(addr_t addr);
 endinterface
 
@@ -281,7 +281,7 @@ module mkSpCache (SpCache#(entries, asso, data_t, addr_t, idx_t, asso_t))
     return i_find_hit(idx, tag, tag_rd); 
   endmethod
 
-  method Action write_data(addr_t addr, data_t data);
+  method Action wr_data(addr_t addr, data_t data);
     idx_t idx = truncate(addr);
     tag_t tag = truncate((addr >> valueOf(idx_width)));
     Vector#(asso, SpC_tag_pack_t#(tag_t)) tag_rd = tag_ram.sub(idx);

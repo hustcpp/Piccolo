@@ -226,12 +226,12 @@ typedef 2  NOVA_CFG_ITA_ASSO;
 typedef TLog#(NOVA_CFG_ITA_ASSO)  NOVA_CFG_ITA_ASSO_IDW;
 typedef  Bit #(NOVA_CFG_ITA_ASSO_IDW)     ITA_ASSO_ID_t;
 
-`ifdef NOVA_CFG_ITA_TAG
-typedef `NOVA_CFG_ITA_TAG NOVA_CFG_ITA_TAG;
+`ifdef NOVA_CFG_ITA_IDX
+typedef `NOVA_CFG_ITA_IDX NOVA_CFG_ITA_IDX;
 `else
-typedef 12  NOVA_CFG_ITA_TAG;
+typedef 12  NOVA_CFG_ITA_IDX;
 `endif
-typedef  Bit #(NOVA_CFG_ITA_TAG)     ITA_TAG_t;
+typedef  Bit #(NOVA_CFG_ITA_IDX)     ITA_IDX_t;
 
 typedef TSub#(NOVA_CFG_ITA_CACHE_IDW, NOVA_CFG_ITA_ASSO_IDW)  NOVA_CFG_ITA_SET_IDW;
 typedef  Bit #(NOVA_CFG_ITA_SET_IDW)     ITA_SET_ID_t;

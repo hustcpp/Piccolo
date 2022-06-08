@@ -37,17 +37,11 @@ import NOVA_Decls :: *;
 import NOVA_Utils :: *;
 import NOVA_BrPredCplx_IFC     :: *;
 
-typedef  Bit #(14)      Loop_Cnt_t;
-typedef struct {
-  PC_t                  target;
-} BPC_LOOP_Pack_t
-deriving (FShow, Bits);
-
 (* synthesize *)
 module mkNOVA_BPC_ITA (NOVA_BPC_ITA_IFC);
   // ----------------
   // Instances
-  SpCache#(NOVA_CFG_ITA_ENTRIES, NOVA_CFG_ITA_ASSO, PC_t, ITA_TAG_t, ITA_SET_ID_t, ITA_ASSO_ID_t) 
+  SpCache#(NOVA_CFG_ITA_ENTRIES, NOVA_CFG_ITA_ASSO, PC_t, ITA_IDX_t, ITA_SET_ID_t, ITA_ASSO_ID_t) 
                             cache <- mkSpCache;
 
   GPCvt #(BPC_SPLBP_REQ_t)                req_agent   <- mkGPCvt;
@@ -60,6 +54,29 @@ module mkNOVA_BPC_ITA (NOVA_BPC_ITA_IFC);
 
   // ----------------
   // Rules 
+  rule rl_handle_alloc;
+    let           reqv = alloc_agent.first();
+    PC_t          pc   = {reqv.pc_h, reqv.pc_os};
+    ITA_IDX_t     idx  = truncate(pc) ^ truncate(reqv.ght);
+    cache.wr_data(idx, reqv.target_pc);
+  endrule
+
+  rule rl_handle_lkup;
+    let            reqv = req_agent.first();
+    BPC_ITA_RSP_t  rspv = unpack(fromInteger(0));
+    PC_t           pc   = {reqv.pc_h, reqv.pc_os};
+    ITA_IDX_t     idx  = truncate(pc) ^ truncate(reqv.ght);
+    let cache_data = cache.rd_data(idx);
+    rspv.taken = isValid(cache_data); // indicate ITA has a predication
+    rspv.target_pc = cache_data.Valid;
+    req_agent.deq();
+    rsp_agent.enq(rspv);
+  endrule
+
+  rule rl_handle_cmt;
+    let           reqv = cmt_agent.first();
+    cmt_agent.deq();
+  endrule
 
   // ----------------
   // method

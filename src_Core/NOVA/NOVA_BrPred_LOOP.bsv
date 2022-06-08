@@ -121,6 +121,7 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
   rule rl_handle_alloc;
     let           reqv = alloc_agent.first();
     PC_t          pc   = {reqv.pc_h, reqv.pc_os};
+    alloc_agent.deq();
   endrule
 
   rule rl_handle_lkup;
@@ -182,6 +183,7 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
       // in training, always jump
       rspv.taken = True;
     rspv.id = tuple2(map_id, osq_wr);
+    // rspv.target_pc not set, LOOP does not predict target pc
 
     osq_mgr.inc_wr();
     osq_id_r[osq_wr] <= map_id;
@@ -302,7 +304,7 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
           trained : map_trained_nxt[map_id] == 1'b1
         };
       map_mgr.free_entry(map_id);
-      cnt_cache.write_data(map_pc[map_id], cache_entry);
+      cnt_cache.wr_data(map_pc[map_id], cache_entry);
     end
   endrule
 
