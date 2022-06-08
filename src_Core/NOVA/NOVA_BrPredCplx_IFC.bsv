@@ -207,6 +207,7 @@ deriving (FShow, Bits);
 typedef struct {
   Bool                  excp;
   Bool                  commit;
+  Bool                  flush_mispred; // flush is due to mispred of this unit or not
   Maybe#(id_t)          flush;
 } BPC_SPLBP_CMT_t#(type id_t)
 deriving (FShow, Bits);

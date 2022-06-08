@@ -210,6 +210,32 @@ typedef  Bit #(NOVA_CFG_LOOP_SET_IDW)     LOOP_SET_ID_t;
 typedef  1   NOVA_CFG_IAT_OSQ_IDW;
 typedef  Bit #(NOVA_CFG_IAT_OSQ_IDW)     ITA_OSQ_ID_t;
 
+`ifdef NOVA_CFG_ITA_ENTRIES
+typedef `NOVA_CFG_ITA_ENTRIES NOVA_CFG_ITA_ENTRIES;
+`else
+typedef 128  NOVA_CFG_ITA_ENTRIES;
+`endif
+typedef TLog#(NOVA_CFG_ITA_ENTRIES)  NOVA_CFG_ITA_CACHE_IDW;
+typedef  Bit #(NOVA_CFG_ITA_CACHE_IDW)     ITA_CACHE_ID_t;
+
+`ifdef NOVA_CFG_ITA_ASSO
+typedef `NOVA_CFG_ITA_ASSO NOVA_CFG_ITA_ASSO;
+`else
+typedef 2  NOVA_CFG_ITA_ASSO;
+`endif
+typedef TLog#(NOVA_CFG_ITA_ASSO)  NOVA_CFG_ITA_ASSO_IDW;
+typedef  Bit #(NOVA_CFG_ITA_ASSO_IDW)     ITA_ASSO_ID_t;
+
+`ifdef NOVA_CFG_ITA_TAG
+typedef `NOVA_CFG_ITA_TAG NOVA_CFG_ITA_TAG;
+`else
+typedef 12  NOVA_CFG_ITA_TAG;
+`endif
+typedef  Bit #(NOVA_CFG_ITA_TAG)     ITA_TAG_t;
+
+typedef TSub#(NOVA_CFG_ITA_CACHE_IDW, NOVA_CFG_ITA_ASSO_IDW)  NOVA_CFG_ITA_SET_IDW;
+typedef  Bit #(NOVA_CFG_ITA_SET_IDW)     ITA_SET_ID_t;
+
 typedef enum { 
     BC_NO,      // not a branch or jump
     BC_BRCC,    // conditional branch, brcc can be currently not predicated if not mapped in BTB
