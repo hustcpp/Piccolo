@@ -107,9 +107,8 @@ module mkNOVA_BrPredCplx (NOVA_BrPredCplx_IFC);
   interface ifc_brf_intf   = bpq.ifc_brf_intf;
   interface itb_flush_intf = ctrl.itb_flush_intf;
   interface ifc_fbu_intf   = ctrl.ifc_fbu_intf;
-  interface exu_bcu_intfs  = ctrl.exu_bcu_intfs;
   interface rob_cmt_intf   = ctrl.rob_cmt_intf;
-  interface rob_excp_intf  = ctrl.rob_excp_intf;
+  interface rob_flush_intf = ctrl.rob_flush_intf;
 
 endmodule: mkNOVA_BrPredCplx
 

@@ -25,6 +25,15 @@ typedef  Bit #(IFetch_HAddr_w)                     IFetch_HAddr_t;
 typedef  Bit #(NOVA_CFG_BPC_FETCH_AW)              IFetch_LAddr_t;
 typedef  Bit #(NOVA_CFG_BPC_FETCH_HID)             IFetch_HF_POS_t;
 
+`ifdef NOVA_CFG_BPC_FETCH_W
+typedef `NOVA_CFG_RESET_PC  NOVA_CFG_RESET_PC;
+`else
+typedef 0  NOVA_CFG_RESET_PC;
+`endif
+typedef TDiv#(NOVA_CFG_RESET_PC,NOVA_CFG_BPC_FETCH_W) NOVA_CFG_RESET_PCH;
+typedef TMul#(NOVA_CFG_RESET_PCH, NOVA_CFG_BPC_FETCH_W) NOVA_CFG_RESET_PC_ALIGN;
+typedef TMul#(NOVA_CFG_RESET_PC, NOVA_CFG_RESET_PC_ALIGN) NOVA_CFG_RESET_PCL;
+
 `ifdef NOVA_CFG_BPC_PRED_W
 typedef `NOVA_CFG_BPC_PRED_W  NOVA_CFG_BPC_PRED_W;
 `else
@@ -43,6 +52,15 @@ typedef 128  NOVA_CFG_BPC_BHT_W;
 `endif
 typedef  Bit #(NOVA_CFG_BPC_BHT_W)              BPC_BHT_t;
 
+`ifdef NOVA_CFG_BPC_BHT_SV_W
+typedef `NOVA_CFG_BPC_BHT_SV_W  NOVA_CFG_BPC_BHT_SV_W;
+`else
+typedef 256  NOVA_CFG_BPC_BHT_SV_W;
+`endif
+typedef  Bit #(NOVA_CFG_BPC_BHT_SV_W)           BPC_BHT_SV_t;
+typedef TLog#(NOVA_CFG_BPC_BHT_SV_W)            NOVA_CFG_BPC_BHT_SV_IDW;
+typedef  Bit #(NOVA_CFG_BPC_BHT_SV_IDW)         BPC_BHT_SV_ID_t;
+
 `ifdef NOVA_CFG_BPC_BPQ_ENTRIES
 typedef `NOVA_CFG_BPC_BPQ_ENTRIES  NOVA_CFG_BPC_BPQ_ENTRIES;
 `else
@@ -56,7 +74,8 @@ typedef `NOVA_CFG_BPC_BP_ID_NUM  NOVA_CFG_BPC_BP_ID_NUM;
 `else
 typedef 64  NOVA_CFG_BPC_BP_ID_NUM;
 `endif
-typedef TLog#(NOVA_CFG_BPC_BP_ID_NUM)  NOVA_CFG_BPC_BP_ID_W;
+typedef TLog#(NOVA_CFG_BPC_BP_ID_NUM)     NOVA_CFG_BPC_BP_ID_W;
+typedef TSub#(NOVA_CFG_BPC_BP_ID_NUM, 1)  NOVA_CFG_BPC_BP_ID_MAX;
 typedef  Bit #(NOVA_CFG_BPC_BP_ID_W)   BP_ID_t;
 
 `ifdef NOVA_CFG_BRU_N

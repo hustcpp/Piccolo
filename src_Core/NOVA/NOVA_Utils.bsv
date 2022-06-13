@@ -494,4 +494,25 @@ module mkFreeQueMgr (FreeQueMgr#(entries, addr_t))
 
 endmodule
 
+function data_t readWire(Wire#(data_t) val);
+  return val;
+endfunction
+
+function Vector#(n, data_t) readVWire(Vector#(n, Wire#(data_t)) vval);
+  return map(readWire, vval);
+endfunction
+
+function Action writeWire(Tuple2#(Wire#(data_t), data_t) val);
+action
+  match {.dst, .wval} = val;
+  dst <= wval;
+endaction
+endfunction
+
+function Action writeVWire(Vector#(n, Wire#(data_t)) vdst, Vector#(n, data_t) val);
+action
+  let a = map(writeWire, zip(vdst, val));
+endaction
+endfunction
+
 endpackage

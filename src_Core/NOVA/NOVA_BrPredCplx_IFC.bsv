@@ -48,15 +48,15 @@ typedef struct {
 } BPC_IFC_FBU_Pack_t
 deriving (FShow, Bits);
 
-typedef struct {
-  BP_ID_t               bp_id;
-  Br_Class_t            br_class;
-  IFetch_LAddr_t        pc_os;
-  IFetch_HAddr_t        pc_h;
-  PC_t                  pc_target;
-  Bool                  taken;
-} EXU_BPC_BCU_Pack_t
-deriving (FShow, Bits);
+//typedef struct {
+//  BP_ID_t               bp_id;
+//  Br_Class_t            br_class;
+//  IFetch_LAddr_t        pc_os;
+//  IFetch_HAddr_t        pc_h;
+//  PC_t                  pc_target;
+//  Bool                  taken;
+//} EXU_BPC_BCU_Pack_t
+//deriving (FShow, Bits);
 
 typedef struct {
   BP_ID_t               bp_id;
@@ -66,7 +66,7 @@ deriving (FShow, Bits);
 typedef struct {
   BP_ID_t               bp_id;
   Bit #(8)              excp_type;
-} ROB_BPC_EXCP_Pack_t
+} ROB_BPC_FLUSH_Pack_t
 deriving (FShow, Bits);
 
 typedef struct {
@@ -281,9 +281,8 @@ typedef NOVA_BPC_SPL_IFC#(BPC_SPLBP_REQ_t, BPC_LOOP_RSP_t , BPC_SPLBP_ALLOC_t, B
 
 interface NOVA_BPC_CTRL_IFC;
   interface Put #(BPC_IFC_FBU_Pack_t)  ifc_fbu_intf;
-  interface Vector#(NOVA_CFG_BRU_N, Get#(EXU_BPC_BCU_Pack_t)) exu_bcu_intfs;
   interface Put #(ROB_BPC_CMT_Pack_t)  rob_cmt_intf;
-  interface Put #(ROB_BPC_EXCP_Pack_t) rob_excp_intf;
+  interface Put #(ROB_BPC_FLUSH_Pack_t) rob_flush_intf;
   interface Put #(BPC_IFC_ITBF_Pack_t) itb_flush_intf;
   interface Get #(IFC_BPC_BRF_Pack_t)  bpq_flush_intf;
   interface Get #(IFC_BPC_BPQ_Pack_t)  bpq_enq_intf;
@@ -327,14 +326,11 @@ interface NOVA_BrPredCplx_IFC;
   // IFC branch target or decode UPDT
   interface Put #(BPC_IFC_FBU_Pack_t)  ifc_fbu_intf;
   
-  // EXU branch unit interfaces
-  interface Vector#(NOVA_CFG_BRU_N, Get#(EXU_BPC_BCU_Pack_t)) exu_bcu_intfs;
-
   // ROB commit interface to free BPC resources
   interface Put #(ROB_BPC_CMT_Pack_t)  rob_cmt_intf;
 
-  // ROB exception interface to redirect BPU
-  interface Put #(ROB_BPC_EXCP_Pack_t) rob_excp_intf;
+  // ROB interface to redirect BPU (from exception, BP mispred)
+  interface Put #(ROB_BPC_FLUSH_Pack_t) rob_flush_intf;
 
   // inform ITB a L0 BTB is flushed
   interface Put #(BPC_IFC_ITBF_Pack_t) itb_flush_intf;
