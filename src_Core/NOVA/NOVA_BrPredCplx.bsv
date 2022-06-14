@@ -79,6 +79,10 @@ module mkNOVA_BrPredCplx (NOVA_BrPredCplx_IFC);
   mkConnection(ctrl.l1_bpp_updt_client,  l1_bpp.updt_server);
   mkConnection(ctrl.l2_bpp_updt_client,  l2_bpp.updt_server);
 
+  mkConnection(ctrl.l0_bpp_pre_lkup,  l0_bpp.pre_lkup_put);
+  mkConnection(ctrl.l1_bpp_pre_lkup,  l1_bpp.pre_lkup_put);
+  mkConnection(ctrl.l2_bpp_pre_lkup,  l2_bpp.pre_lkup_put);
+
   mkConnection(ctrl.ita_lkup_client,  ita.lkup_server);
   mkConnection(ctrl.ita_alloc,  ita.alloc);
   mkConnection(ctrl.ita_cmt,  ita.cmt);

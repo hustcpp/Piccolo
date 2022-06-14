@@ -114,8 +114,12 @@ typedef BPC_BTB_RSP_t#(L2_BTB_HF_ID_t) BPC_L2_BTB_RSP_t;
 
 typedef struct {
   BPC_BHT_t                 ght;
-  IFetch_LAddr_t            pc_os;
   BPC_BTB_REQ_t             btb_req;
+} BPC_BPP_LKUP_REQ_t
+deriving (FShow, Bits);
+
+typedef struct {
+  IFetch_LAddr_t            pc_os;
   BPC_BTB_RSP_t#(btb_id_t)  btb_rsp;
 } BPC_BPP_REQ_t#(type btb_id_t)
 deriving (FShow, Bits);
@@ -261,6 +265,7 @@ interface NOVA_BPC_GNRL_BPP_IFC#(numeric type odly,
                                  type updt_rsp_t);
   interface Server#(req_t, rsp_t) lkup_server;
   interface Server#(updt_req_t, updt_rsp_t) updt_server;
+  interface Put#(BPC_BPP_LKUP_REQ_t) pre_lkup_put;
 endinterface
 
 typedef NOVA_BPC_GNRL_BTB_IFC#(0, 0, NOVA_CFG_L0_BTB_HF_ENTRIES, NOVA_CFG_L0_BTB_HF_ENTRIES, BPC_BTB_REQ_t, BPC_L0_BTB_RSP_t, BPC_L0_BTB_UPDT_REQ_t, BPC_L0_BTB_UPDT_RSP_t) NOVA_BPC_L0_BTB_IFC;
@@ -304,6 +309,10 @@ interface NOVA_BPC_CTRL_IFC;
   interface Client#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t)    l0_bpp_updt_client;
   interface Client#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t)    l1_bpp_updt_client;
   interface Client#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t)    l2_bpp_updt_client;
+
+  interface Get#(BPC_BPP_LKUP_REQ_t) l0_bpp_pre_lkup;
+  interface Get#(BPC_BPP_LKUP_REQ_t) l1_bpp_pre_lkup;
+  interface Get#(BPC_BPP_LKUP_REQ_t) l2_bpp_pre_lkup;
 
   interface Client#(BPC_SPLBP_REQ_t, BPC_RAS_RSP_t)      ras_lkup_client;
   interface Get#(BPC_SPLBP_ALLOC_t)                      ras_alloc;
