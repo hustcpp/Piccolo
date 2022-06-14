@@ -279,17 +279,16 @@ module mkNOVA_Core(CLK,
   // ports of submodule bp_cplx
   wire [92 : 0] bp_cplx$ifc_fbu_intf_put;
   wire [30 : 0] bp_cplx$bpc_cfg_intf_put;
-  wire [13 : 0] bp_cplx$rob_excp_intf_put;
+  wire [13 : 0] bp_cplx$rob_flush_intf_put;
   wire [5 : 0] bp_cplx$rob_cmt_intf_put;
   wire [3 : 0] bp_cplx$itb_flush_intf_put;
   wire bp_cplx$EN_bpc_cfg_intf_put,
-       bp_cplx$EN_exu_bcu_intfs_0_get,
        bp_cplx$EN_ifc_bpq_intf_get,
        bp_cplx$EN_ifc_brf_intf_get,
        bp_cplx$EN_ifc_fbu_intf_put,
        bp_cplx$EN_itb_flush_intf_put,
        bp_cplx$EN_rob_cmt_intf_put,
-       bp_cplx$EN_rob_excp_intf_put;
+       bp_cplx$EN_rob_flush_intf_put;
 
   // ports of submodule master_xactor_f_rd_addr
   wire [96 : 0] master_xactor_f_rd_addr$D_IN, master_xactor_f_rd_addr$D_OUT;
@@ -449,13 +448,12 @@ module mkNOVA_Core(CLK,
 			    .ifc_fbu_intf_put(bp_cplx$ifc_fbu_intf_put),
 			    .itb_flush_intf_put(bp_cplx$itb_flush_intf_put),
 			    .rob_cmt_intf_put(bp_cplx$rob_cmt_intf_put),
-			    .rob_excp_intf_put(bp_cplx$rob_excp_intf_put),
+			    .rob_flush_intf_put(bp_cplx$rob_flush_intf_put),
 			    .EN_ifc_bpq_intf_get(bp_cplx$EN_ifc_bpq_intf_get),
 			    .EN_ifc_brf_intf_get(bp_cplx$EN_ifc_brf_intf_get),
 			    .EN_ifc_fbu_intf_put(bp_cplx$EN_ifc_fbu_intf_put),
-			    .EN_exu_bcu_intfs_0_get(bp_cplx$EN_exu_bcu_intfs_0_get),
 			    .EN_rob_cmt_intf_put(bp_cplx$EN_rob_cmt_intf_put),
-			    .EN_rob_excp_intf_put(bp_cplx$EN_rob_excp_intf_put),
+			    .EN_rob_flush_intf_put(bp_cplx$EN_rob_flush_intf_put),
 			    .EN_itb_flush_intf_put(bp_cplx$EN_itb_flush_intf_put),
 			    .EN_bpc_cfg_intf_put(bp_cplx$EN_bpc_cfg_intf_put),
 			    .ifc_bpq_intf_get(),
@@ -463,10 +461,8 @@ module mkNOVA_Core(CLK,
 			    .ifc_brf_intf_get(),
 			    .RDY_ifc_brf_intf_get(),
 			    .RDY_ifc_fbu_intf_put(),
-			    .exu_bcu_intfs_0_get(),
-			    .RDY_exu_bcu_intfs_0_get(),
 			    .RDY_rob_cmt_intf_put(),
-			    .RDY_rob_excp_intf_put(),
+			    .RDY_rob_flush_intf_put(),
 			    .RDY_itb_flush_intf_put(),
 			    .RDY_bpc_cfg_intf_put());
 
@@ -530,13 +526,12 @@ module mkNOVA_Core(CLK,
   assign bp_cplx$ifc_fbu_intf_put = 93'h0 ;
   assign bp_cplx$itb_flush_intf_put = 4'h0 ;
   assign bp_cplx$rob_cmt_intf_put = 6'h0 ;
-  assign bp_cplx$rob_excp_intf_put = 14'h0 ;
+  assign bp_cplx$rob_flush_intf_put = 14'h0 ;
   assign bp_cplx$EN_ifc_bpq_intf_get = 1'b0 ;
   assign bp_cplx$EN_ifc_brf_intf_get = 1'b0 ;
   assign bp_cplx$EN_ifc_fbu_intf_put = 1'b0 ;
-  assign bp_cplx$EN_exu_bcu_intfs_0_get = 1'b0 ;
   assign bp_cplx$EN_rob_cmt_intf_put = 1'b0 ;
-  assign bp_cplx$EN_rob_excp_intf_put = 1'b0 ;
+  assign bp_cplx$EN_rob_flush_intf_put = 1'b0 ;
   assign bp_cplx$EN_itb_flush_intf_put = 1'b0 ;
   assign bp_cplx$EN_bpc_cfg_intf_put = 1'b0 ;
 

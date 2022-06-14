@@ -124,9 +124,11 @@ typedef BPC_BPP_REQ_t#(L1_BTB_HF_ID_t) BPC_L1_BPP_REQ_t;
 typedef BPC_BPP_REQ_t#(L2_BTB_HF_ID_t) BPC_L2_BPP_REQ_t;
 
 typedef struct {
-  Maybe#(sig_t)         bp_sig;
+  Bool                  taken;        // has taken jump or brcc
+  Bool                  brcc_taken;   // last one is taken brcc
+  sig_t                 bp_sig;
   IFetch_LAddr_t        pc_os_end;
-  IFetch_LAddr_t        untaken_brcc_cnt;
+  IFetch_LAddr_t        brcc_cnt;     // total brcc in this fetch
 } BPC_BPP_RSP_t#(type sig_t) 
 deriving (FShow, Bits);
 typedef BPC_BPP_RSP_t#(L0_BPP_SIG_t) BPC_L0_BPP_RSP_t;

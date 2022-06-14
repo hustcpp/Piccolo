@@ -164,16 +164,16 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
     IFetch_HF_POS_t start = truncate(val.pc_os);
     Maybe#(IFetch_LAddr_t) end_pos   = Invalid;
 
-    rspv.bp_sig = Invalid;
+    rspv.bp_sig = 0;
     for (Integer j = 0; j < valueOf(NOVA_CFG_BPC_FETCH_W); j=j+1)
     if (!isValid(end_pos) && fromInteger(j) >= start)
     begin
       if (vector[j] == 1'b1)
       begin
         end_pos = tagged Valid fromInteger(j);
-      end else begin
-        rspv.untaken_brcc_cnt = rspv.untaken_brcc_cnt + zeroExtend(branchs[j]);
+        rspv.brcc_taken = branchs[j] == 1'b1;
       end
+      rspv.brcc_cnt = rspv.brcc_cnt + zeroExtend(branchs[j]);
     end
 
     rspv.pc_os_end = end_pos.Valid;
@@ -183,9 +183,11 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
       sig = res_bpp_idx[msb(rspv.pc_os_end)];
     end else begin
       sig = res_bpp_idx[~msb(rspv.pc_os_end)];
+      rspv.pc_os_end = rspv.pc_os_end ^ (1 << (valueOf(NOVA_CFG_BPC_FETCH_AW)-1));
     end
-    if (isValid(end_pos))
-      rspv.bp_sig = tagged Valid sig;
+    rspv.taken = isValid(end_pos);
+    if (rspv.taken)
+      rspv.bp_sig = sig;
     rsp_wire.wset(rspv);
   endrule
 
