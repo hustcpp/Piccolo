@@ -515,4 +515,23 @@ action
 endaction
 endfunction
 
+
+module mkSRegA#(parameter a_type resetval) (Reg#(a_type))
+  provisos (Bits#(a_type, sizea));
+  Reg#(a_type) i_reg <- mkRegA(resetval);
+  Wire#(a_type) i_wire <- mkWire;
+  
+  rule rl_rd_reg;
+    i_wire <= i_reg;
+  endrule
+
+  method Action _write(a_type x1);
+    i_reg <= x1;
+  endmethod
+
+  method a_type _read();
+    return i_wire;
+  endmethod
+endmodule
+
 endpackage

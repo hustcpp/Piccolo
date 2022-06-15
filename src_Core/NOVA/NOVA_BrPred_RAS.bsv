@@ -52,7 +52,7 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
                                      pras_mgr    <- mkFreeQueMgr;
 
   RegFile#(RAS_OSQ_ID_t, RAS_PID_t)    osq_pid_r   <- mkRegFile(0, fromInteger(valueOf(OSQ_RAS_MAX)));
-  Reg#(Bit#(NOVA_CFG_RAS_OSQ_ENTRIES)) osq_call_r  <- mkRegA(0);
+  Reg#(Bit#(NOVA_CFG_RAS_OSQ_ENTRIES)) osq_call_r  <- mkSRegA(0);
   Reg#(Bit#(NOVA_CFG_RAS_OSQ_ENTRIES)) osq_flush_r <- mkRegA(0);
   FIFOMgr#(NOVA_CFG_RAS_OSQ_ENTRIES, RAS_OSQ_ID_t)
                                        osq_mgr     <- mkFIFOMgr;
@@ -60,12 +60,11 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
   Que#(NOVA_CFG_RAS_CMT_ENTRIES, RAS_PID_t) cmt_ras   <- mkSizedQue;
 
   GPCvt #(BPC_SPLBP_REQ_t)                req_agent   <- mkGPCvt;
-  GPCvt #(BPC_RAS_RSP_t)                  rsp_agent   <- mkGPCvt;
+  FIFOF #(BPC_RAS_RSP_t)                  rsp_agent   <- mkPipelineFIFOF;
   GPCvt #(BPC_SPLBP_ALLOC_t)              alloc_agent <- mkGPCvt;
   GPCvt #(BPC_RAS_CMT_t)                  cmt_agent   <- mkGPCvt;
   
   Wire#(RAS_PID_t)                        retire_pid   <- mkWire;
-  Wire#(Bit#(NOVA_CFG_RAS_OSQ_ENTRIES))   osq_call     <- mkWire;
 
   // ----------------
   // States
@@ -81,7 +80,7 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
   Bool      pras_full    = pras_mgr.is_full;
   Bool      pras_empty   = pras_mgr.is_empty;
   PC_t      pc_top       = pras_r.sub(pras_top);
-  Bool      retire_call  = osq_call[osq_rd] == 1'b1;
+  Bool      retire_call  = osq_call_r[osq_rd] == 1'b1;
   Bool      retire_flush = osq_flush[osq_rd] == 1'b1;
 
   function Action new_call(PC_t ret_pc);
@@ -105,7 +104,6 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
 
   rule rl_reg_read;
     retire_pid   <= osq_pid_r.sub(osq_rd);
-    osq_call     <= osq_call_r;
   endrule
 
   (* descending_urgency = "rl_handle_alloc, rl_handle_lkup" *)

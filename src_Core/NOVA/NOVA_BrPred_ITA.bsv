@@ -45,7 +45,7 @@ module mkNOVA_BPC_ITA (NOVA_BPC_ITA_IFC);
                             cache <- mkSpCache;
 
   GPCvt #(BPC_SPLBP_REQ_t)                req_agent   <- mkGPCvt;
-  GPCvt #(BPC_ITA_RSP_t)                  rsp_agent   <- mkGPCvt;
+  FIFOF #(BPC_ITA_RSP_t)                  rsp_agent   <- mkPipelineFIFOF;
   GPCvt #(BPC_SPLBP_ALLOC_t)              alloc_agent <- mkGPCvt;
   GPCvt #(BPC_ITA_CMT_t)                  cmt_agent   <- mkGPCvt;
 

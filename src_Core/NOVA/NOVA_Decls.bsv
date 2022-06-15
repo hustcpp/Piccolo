@@ -260,7 +260,7 @@ typedef enum {
     BC_BRCC,    // conditional branch, brcc can be currently not predicated if not mapped in BTB
     BC_BRUC,    // un-conditional branch
     //BC_BRNT,    // conditional branch mostly not taken, not currently predicted
-    //BC_LOOP     // Special BRCC: Small loop
+    BC_LOOP,    // Special BRCC: loop
     BC_JMP,     // unconditional jump
     BC_CALL,    // Special JMP: func call
     BC_RET,     // Special JMP: func ret

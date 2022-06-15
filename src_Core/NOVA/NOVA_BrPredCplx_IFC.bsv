@@ -133,6 +133,7 @@ typedef struct {
   sig_t                 bp_sig;
   IFetch_LAddr_t        pc_os_end;
   IFetch_LAddr_t        brcc_cnt;     // total brcc in this fetch
+  Br_Class_t            br_class;
 } BPC_BPP_RSP_t#(type sig_t) 
 deriving (FShow, Bits);
 typedef BPC_BPP_RSP_t#(L0_BPP_SIG_t) BPC_L0_BPP_RSP_t;

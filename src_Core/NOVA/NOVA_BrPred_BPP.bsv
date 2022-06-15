@@ -89,7 +89,6 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
     let val = req.first();
     rsp_t rspv = unpack(fromInteger(valueOf(0)));
     Vector#(2, Bit#(NOVA_CFG_BPC_FETCH_HW)) res_taken  = replicate('b0);
-    Vector#(2, Bit#(NOVA_CFG_BPC_FETCH_HW)) res_btb_valid = replicate('b0);
     Vector#(2, Bit#(NOVA_CFG_BPC_FETCH_HW)) res_is_brcc   = replicate('b0);
     Vector#(2, bpp_sig_t) res_bpp_idx = replicate('b0);
 
@@ -101,7 +100,6 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
         begin
           Bool taken = False;
           Bool is_brcc = False;
-          Bool btb_valid = False;
           case (val.btb_rsp.btb_info[i].br_class[j]) matches
             BC_NO:      // not a branch or jump
               begin
@@ -109,24 +107,22 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
             BC_BRCC:    // conditional branch, brcc can be currently not predicated if not mapped in BTB
               begin
                 is_brcc = True;
-                if (predict(phts[j]))
-                begin
-                  taken = True;
-                  btb_valid = True;
-                end
+                taken = predict(phts[j]);
+              end
+            BC_LOOP:    // Loop
+              begin
+                is_brcc = True;
+                taken = True;
               end
             BC_BRUC:    // un-conditional branch
               begin
                 taken = True;
-                btb_valid = isValid(val.btb_rsp.btb_map[i].target_pos[j]);
               end
             BC_JMP:     // unconditional jump
               begin
                 taken = True;
-                btb_valid = isValid(val.btb_rsp.btb_map[i].target_pos[j]);
               end
             //BC_BRNT:    // conditional branch mostly not taken, not currently predicted
-            //BC_LOOP:    // Special BRCC: Small loop
             BC_CALL:    // Special JMP: func call
               begin
                 taken = True;
@@ -145,20 +141,19 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
               end
           endcase
           res_taken[i][j]  = pack(taken);
-          res_btb_valid[i][j] = pack(btb_valid);
           res_is_brcc[i][j] = pack(is_brcc);
         end
     end
     
-    Bit#(NOVA_CFG_BPC_FETCH_W) vector  = 'b0;
-    Bit#(NOVA_CFG_BPC_FETCH_W) branchs = 'b0;
+    Bit#(NOVA_CFG_BPC_FETCH_W) takens  = 'b0;
+    Bit#(NOVA_CFG_BPC_FETCH_W) brccs   = 'b0;
     if (msb(val.pc_os) == 1'b0)
     begin
-      vector = {res_taken[1], res_taken[0]};
-      branchs = {res_is_brcc[1], res_is_brcc[0]};
+      takens = {res_taken[1], res_taken[0]};
+      brccs = {res_is_brcc[1], res_is_brcc[0]};
     end else begin
-      vector = {res_taken[0], res_taken[1]};
-      branchs = {res_is_brcc[0], res_is_brcc[1]};
+      takens = {res_taken[0], res_taken[1]};
+      brccs = {res_is_brcc[0], res_is_brcc[1]};
     end
 
     IFetch_HF_POS_t start = truncate(val.pc_os);
@@ -168,22 +163,27 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
     for (Integer j = 0; j < valueOf(NOVA_CFG_BPC_FETCH_W); j=j+1)
     if (!isValid(end_pos) && fromInteger(j) >= start)
     begin
-      if (vector[j] == 1'b1)
+      if (takens[j] == 1'b1)
       begin
         end_pos = tagged Valid fromInteger(j);
-        rspv.brcc_taken = branchs[j] == 1'b1;
+        rspv.brcc_taken = brccs[j] == 1'b1;
       end
-      rspv.brcc_cnt = rspv.brcc_cnt + zeroExtend(branchs[j]);
+      rspv.brcc_cnt = rspv.brcc_cnt + zeroExtend(brccs[j]);
     end
 
     rspv.pc_os_end = end_pos.Valid;
+    IFetch_HF_POS_t lsb_os = truncate(rspv.pc_os_end);
+    bit msb_os = msb(rspv.pc_os_end);
+    bit msb_b_os = ~msb_os;
     bpp_sig_t sig = unpack('b0);
     if (msb(val.pc_os) == 1'b0)
     begin
-      sig = res_bpp_idx[msb(rspv.pc_os_end)];
+      sig = res_bpp_idx[msb_os];
+      rspv.br_class = val.btb_rsp.btb_info[msb_os].br_class[lsb_os];
     end else begin
-      sig = res_bpp_idx[~msb(rspv.pc_os_end)];
+      sig = res_bpp_idx[msb_b_os];
       rspv.pc_os_end = rspv.pc_os_end ^ (1 << (valueOf(NOVA_CFG_BPC_FETCH_AW)-1));
+      rspv.br_class = val.btb_rsp.btb_info[msb_b_os].br_class[lsb_os];
     end
     rspv.taken = isValid(end_pos);
     if (rspv.taken)

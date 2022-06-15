@@ -62,13 +62,13 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
   Vector#(NOVA_CFG_LOOP_MAP_ENTRIES, Reg#(PC_t))
                             map_pc_r  <- replicateM(mkRegA(0));
   Reg#(Bit#(NOVA_CFG_LOOP_MAP_ENTRIES))
-                            map_trained_r <- mkRegA(0);
+                            map_trained_r <- mkSRegA(0);
   Vector#(NOVA_CFG_LOOP_MAP_ENTRIES, Reg#(Loop_Cnt_t))
-                            map_max_r <- replicateM(mkRegA(0));
+                            map_max_r <- replicateM(mkSRegA(0));
   Vector#(NOVA_CFG_LOOP_MAP_ENTRIES, Reg#(Loop_Cnt_t))
-                            map_cnt_r <- replicateM(mkRegA(0)); // latest spec loop cnt in map
+                            map_cnt_r <- replicateM(mkSRegA(0)); // latest spec loop cnt in map
   Vector#(NOVA_CFG_LOOP_MAP_ENTRIES, Reg#(LOOP_OSQ_ID_t))
-                            map_osq_r <- replicateM(mkRegA(0)); // osq entries-1 for this map entries
+                            map_osq_r <- replicateM(mkSRegA(0)); // osq entries-1 for this map entries
   FreeQueMgr#(NOVA_CFG_LOOP_MAP_ENTRIES, LOOP_MAP_ID_t)
                             map_mgr   <- mkFreeQueMgr;
 
@@ -94,30 +94,12 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
                  osq_id       = readVReg(osq_id_r);
   Vector#(NOVA_CFG_LOOP_MAP_ENTRIES, PC_t)
                  map_pc       = readVReg(map_pc_r);
-  Vector#(NOVA_CFG_LOOP_MAP_ENTRIES, Wire#(Loop_Cnt_t))
-                 map_cnt      <- replicateM(mkWire);
-  Vector#(NOVA_CFG_LOOP_MAP_ENTRIES, Wire#(Loop_Cnt_t))
-                 map_max      <- replicateM(mkWire);
-  Vector#(NOVA_CFG_LOOP_MAP_ENTRIES, Wire#(LOOP_OSQ_ID_t))
-                 map_osq      <- replicateM(mkWire);
-  Wire#(Bit#(NOVA_CFG_LOOP_MAP_ENTRIES))
-                 map_trained  <- mkWire;
   Bit#(NOVA_CFG_LOOP_OSQ_ENTRIES) osq_flush = osq_flush_r;
   Bool           retire_flush = osq_flush[osq_rd] == 1'b1;
   LOOP_MAP_ID_t  retire_id    = osq_id[osq_rd];
 
   // ----------------
   // Rules 
-  rule rl_reg_read;
-    map_trained <= map_trained_r;
-    for (Integer i = 0; i < valueOf(NOVA_CFG_LOOP_MAP_ENTRIES); i=i+1)
-    begin
-      map_cnt[i] <= map_cnt_r[i];
-      map_max[i] <= map_max_r[i];
-      map_osq[i] <= map_osq_r[i];
-    end
-  endrule
-
   rule rl_handle_alloc;
     let           reqv = alloc_agent.first();
     PC_t          pc   = {reqv.pc_h, reqv.pc_os};
@@ -172,9 +154,9 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
 
     if (map_hit_id matches tagged Valid .map_id_v)
     begin
-      rd_cnt = map_cnt[map_id_v];
-      rd_max = map_max[map_id_v];
-      rd_trained = map_trained[map_id_v] == 1'b1;
+      rd_cnt = map_cnt_r[map_id_v];
+      rd_max = map_max_r[map_id_v];
+      rd_trained = map_trained_r[map_id_v] == 1'b1;
     end
 
     if (rd_cnt == rd_max)
@@ -199,13 +181,13 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
     Vector#(NOVA_CFG_LOOP_MAP_ENTRIES, Loop_Cnt_t)    map_cnt_nxt;
     Vector#(NOVA_CFG_LOOP_MAP_ENTRIES, Loop_Cnt_t)    map_max_nxt;
     Vector#(NOVA_CFG_LOOP_MAP_ENTRIES, LOOP_OSQ_ID_t) map_osq_nxt;
-    Bit#(NOVA_CFG_LOOP_MAP_ENTRIES) map_trained_nxt = map_trained;
+    Bit#(NOVA_CFG_LOOP_MAP_ENTRIES) map_trained_nxt = map_trained_r;
 
     for (Integer i = 0; i < valueOf(NOVA_CFG_LOOP_MAP_ENTRIES); i=i+1)
     begin
-      map_cnt_nxt[i] = map_cnt[i];
-      map_max_nxt[i] = map_max[i];
-      map_osq_nxt[i] = map_osq[i];
+      map_cnt_nxt[i] = map_cnt_r[i];
+      map_max_nxt[i] = map_max_r[i];
+      map_osq_nxt[i] = map_osq_r[i];
     end
 
     if (new_map_id_w.wget matches tagged Valid .new_map_id)
@@ -218,8 +200,8 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
 
     if (inc_map_id_w.wget matches tagged Valid .inc_map_id)
     begin
-      map_cnt_nxt[inc_map_id] = map_cnt[inc_map_id] + 1;
-      map_osq_nxt[inc_map_id] = map_osq[inc_map_id] + 1;
+      map_cnt_nxt[inc_map_id] = map_cnt_r[inc_map_id] + 1;
+      map_osq_nxt[inc_map_id] = map_osq_r[inc_map_id] + 1;
     end
 
     if (reqv.flush matches tagged Valid .flush_id)
@@ -236,12 +218,12 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
         end
       end
       // update map cnt
-      map_cnt_nxt[map_id] = map_cnt[map_id] - zeroExtend(flush_cnt);
-      map_osq_nxt[map_id] = map_osq[map_id] - flush_cnt;
+      map_cnt_nxt[map_id] = map_cnt_r[map_id] - zeroExtend(flush_cnt);
+      map_osq_nxt[map_id] = map_osq_r[map_id] - flush_cnt;
 
       // if this is a mispred and the pc is in training, the cur cnt is the max cnt
       // need to update cache with this max cnt
-      if (reqv.flush_mispred && map_trained[map_id] == 1'b0)
+      if (reqv.flush_mispred && map_trained_r[map_id] == 1'b0)
       begin
         map_max_nxt[map_id] = map_cnt_nxt[map_id];
         map_trained_nxt[map_id] = 1'b1;
@@ -270,8 +252,8 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
       if (reqv.commit && !retire_flush)
       begin
         // update map cnt
-        map_cnt_nxt[retire_id] = map_cnt[retire_id] - 1;
-        map_osq_nxt[retire_id] = map_osq[retire_id] - 1;
+        map_cnt_nxt[retire_id] = map_cnt_r[retire_id] - 1;
+        map_osq_nxt[retire_id] = map_osq_r[retire_id] - 1;
       end
     end else begin
       cmt_agent.deq();
