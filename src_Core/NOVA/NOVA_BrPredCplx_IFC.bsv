@@ -23,7 +23,7 @@ typedef struct {
   IFetch_LAddr_t        pc_os_start;
   IFetch_LAddr_t        pc_os_end;
   BP_ID_t               bp_id;
-  Bool                  has_new_bp;  // if brcc in the fetch, new prediction is made with new bp_id
+  Bool                  has_taken;  // if brcc in the fetch, new osq is allocated with new bp_id
   Bool                  has_taken_brcc;
   Bool                  loop_start;
   Bool                  cross_boundry;
@@ -134,6 +134,7 @@ typedef struct {
   IFetch_LAddr_t        pc_os_end;
   IFetch_LAddr_t        brcc_cnt;     // total brcc in this fetch
   Br_Class_t            br_class;
+  Maybe#(PC_t)          target_pc;
 } BPC_BPP_RSP_t#(type sig_t) 
 deriving (FShow, Bits);
 typedef BPC_BPP_RSP_t#(L0_BPP_SIG_t) BPC_L0_BPP_RSP_t;

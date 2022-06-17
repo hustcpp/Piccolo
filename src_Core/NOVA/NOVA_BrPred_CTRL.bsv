@@ -59,39 +59,52 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
 
   FIFOMgr#(NOVA_CFG_BPC_BP_ID_NUM, BP_ID_t)
                                osq_mgr     <- mkFIFOMgr;
+  BP_ID_t osq_wr_ptr =         osq_mgr.get_wr();
+  BP_ID_t osq_rd_ptr =         osq_mgr.get_rd();
   RegFile#(BP_ID_t, BPC_CTRL_Pack_t)
                                osq_r <- mkRegFile(0, fromInteger(valueOf(NOVA_CFG_BPC_BP_ID_MAX)));
   Reg#(Bit#(NOVA_CFG_BPC_BP_ID_NUM))
-                               osq_flushed_r <- mkRegA(0);
+                               osq_flushed_r <- mkSRegA(0);
 
   Reg#(Vector#(2, IFetch_HAddr_t))
                                s0_pch_r <- mkSRegA(replicate(fromInteger(valueOf(NOVA_CFG_RESET_PCH))));
   Reg#(IFetch_LAddr_t)         s0_pcl_r <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PCL)));
   Reg#(BPC_BHT_t)              s0_ght_r <- mkSRegA(fromInteger(valueOf(0)));
+  Reg#(BP_ID_t)                s0_bid_r <- mkSRegA(fromInteger(valueOf(0)));
+  Reg#(Bool)        s0_wait_target_pc_r <- mkSRegA(False);
+  Wire#(PC_t)           s0_ras_ita_pc_w <- mkWire;
+  PulseWire              s0_ras_ita_rdy <- mkPulseWire;
 
   Reg#(Vector#(2, IFetch_HAddr_t))
                                s1_pch_r <- mkSRegA(replicate(fromInteger(valueOf(NOVA_CFG_RESET_PCH))));
   Reg#(IFetch_LAddr_t)         s1_pcl_r <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PCL)));
   Reg#(BPC_BHT_t)              s1_ght_r <- mkSRegA(fromInteger(valueOf(0)));
+  Reg#(BP_ID_t)                s1_bid_r <- mkSRegA(fromInteger(valueOf(0)));
   PulseWire                    s1_acpt  <- mkPulseWire;
 
   Reg#(Vector#(2, IFetch_HAddr_t))
                                s2_pch_r <- mkSRegA(replicate(fromInteger(valueOf(NOVA_CFG_RESET_PCH))));
   Reg#(IFetch_LAddr_t)         s2_pcl_r <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PCL)));
   Reg#(BPC_BHT_t)              s2_ght_r <- mkSRegA(fromInteger(valueOf(0)));
+  Reg#(BP_ID_t)                s2_bid_r <- mkSRegA(fromInteger(valueOf(0)));
   PulseWire                    s2_acpt  <- mkPulseWire;
+
+  PulseWire                    s0_bpp_mispred <- mkPulseWire;
+  PulseWire                    s0_btb_mispred <- mkPulseWire;
+  PulseWire                    s1_bpp_mispred <- mkPulseWire;
+  PulseWire                    s1_btb_mispred <- mkPulseWire;
 
   Reg#(BPC_BHT_SV_t)           ght_sv_r <- mkRegA(0); // saved bht
 
   RWire#(BPC_L0_BTB_RSP_t)     l0_btb_rsp_w <- mkRWireSBR;
-  RWire#(BPC_L0_BPP_RSP_t)     l0_bpp_rsp_w <- mkRWireSBR;
-  Reg#(BPC_L0_BTB_RSP_t)       l0_btb_rsp_r[2] <- mkCRegA(2, unpack(fromInteger(0)));
-  Reg#(BPC_L0_BPP_RSP_t)       l0_bpp_rsp_r[2] <- mkCRegA(2, unpack(fromInteger(0)));
+  Reg#(BPC_L0_BTB_RSP_t)       l0_btb_rsp_r <- mkSRegA(unpack(fromInteger(0)));
+  Reg#(BPC_L0_BPP_RSP_t)       l0_bpp_rsp_r <- mkSRegA(unpack(fromInteger(0)));
 
-  RWire#(BPC_L1_BTB_RSP_t)     l1_btb_rsp_w <- mkRWireSBR;
-  RWire#(BPC_L1_BPP_RSP_t)     l1_bpp_rsp_w <- mkRWireSBR;
   Reg#(BPC_L1_BTB_RSP_t)       l1_btb_rsp_r <- mkRegA(unpack(fromInteger(0)));
   Reg#(BPC_L1_BPP_RSP_t)       l1_bpp_rsp_r <- mkRegA(unpack(fromInteger(0)));
+
+  Reg#(BPC_L2_BTB_RSP_t)       l2_btb_rsp_r <- mkRegA(unpack(fromInteger(0)));
+  Reg#(BPC_L2_BPP_RSP_t)       l2_bpp_rsp_r <- mkRegA(unpack(fromInteger(0)));
 
   GPCvt #(BPC_BTB_REQ_t)       l0_btb_req_agent   <- mkGPCvt;
   GPCvt #(BPC_L0_BTB_RSP_t)    l0_btb_rsp_agent   <- mkGPCvt;
@@ -153,63 +166,49 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
     l0_bpp_req_agent.enq(bpp_req);  
   endrule
 
-  rule rl_rsp_lvl0_bpp;
-    let bpp_rsp = l0_bpp_rsp_agent.first();
-    l0_bpp_rsp_agent.deq();
-    l0_bpp_rsp_w.wset(bpp_rsp);
-  endrule
-
   rule rl_handle_stage0;
     let btb_rsp = l0_btb_rsp_w.wget().Valid;
+    let bpp_rsp = l0_bpp_rsp_agent.first();
     Vector#(2, IFetch_HAddr_t) s0_pch_nxt = s0_pch_r;
     IFetch_LAddr_t             s0_pcl_nxt = s0_pcl_r;
     BPC_BHT_t                  s0_ght_nxt = s0_ght_r;
     
-    if (l0_bpp_rsp_w.wget matches tagged Valid .l0_bpp_rsp)
+    // if path end is taken, check btb for target address
+    // if btb does not have the target address, address is increase even the prediction is taken
+    s0_pch_nxt[0] = s0_pch_nxt[0] + 1;
+    s0_pch_nxt[1] = s0_pch_nxt[1] + 1;
+
+    if (bpp_rsp.taken)
     begin
-      // if path end is taken, check btb for target address
-      // if btb does not have the target address, address is increase even the prediction is taken
-      s0_pch_nxt[0] = s0_pch_nxt[0] + 1;
-      s0_pch_nxt[1] = s0_pch_nxt[1] + 1;
-
-      if (l0_bpp_rsp.taken)
+      if (bpp_rsp.target_pc matches tagged Valid .addr)
       begin
-        bit os_end_msb = msb(l0_bpp_rsp.pc_os_end);
-        IFetch_HF_POS_t sel = truncate(l0_bpp_rsp.pc_os_end);
-        let target_pos = btb_rsp.btb_map[os_end_msb].target_pos;
-        let target_pcs = btb_rsp.btb_addr[os_end_msb].target_pc;
-        Maybe#(PC_t) target_pc = Invalid;
-        if (target_pos[sel] matches tagged Valid .pos)
-          target_pc = target_pcs[pos];
-        if (target_pc matches tagged Valid .addr)
-        begin
-          IFetch_HAddr_t pch = truncate(addr >> valueOf(NOVA_CFG_BPC_FETCH_AW));
-          IFetch_LAddr_t pcl = truncate(addr);
-          s0_pch_nxt[1] = pch;        
-          s0_pch_nxt[0] = pch + zeroExtend(msb(pcl));
-          s0_pcl_nxt    = pcl;
-        end
-
-        // get next ght
-        s0_ght_nxt = s0_ght_nxt << l0_bpp_rsp.brcc_cnt;
-        s0_ght_nxt[0] = pack(l0_bpp_rsp.brcc_taken);
+        match {.pch, .pcl} = split_banked_pc(addr);
+        s0_pch_nxt = pch;        
+        s0_pcl_nxt = pcl;
       end
+
+      // get next ght
+      s0_ght_nxt = s0_ght_nxt << bpp_rsp.brcc_cnt;
+      s0_ght_nxt[0] = pack(bpp_rsp.brcc_taken);
+
     end
-    
 
     // update s0 regs
-    if (l0_bpp_rsp_w.wget matches tagged Valid .l0_bpp_rsp &&& s1_acpt)
+    if (s1_acpt)
     begin
       s0_ght_r      <= s0_ght_nxt;
       s0_pcl_r      <= s0_pcl_nxt;
       s0_pch_r      <= s0_pch_nxt;
-      l0_btb_rsp_r[0]  <= l0_btb_rsp_w.wget.Valid;
-      l0_bpp_rsp_r[0]  <= l0_bpp_rsp_w.wget.Valid;
+      s0_bid_r      <= osq_wr_ptr;
+      l0_btb_rsp_r  <= l0_btb_rsp_w.wget.Valid;
+      l0_bpp_rsp_r  <= bpp_rsp;
 
       let btb_req = BPC_BTB_REQ_t{pc_h: s0_pch_nxt};
       let bpp_req = BPC_BPP_LKUP_REQ_t{btb_req: btb_req, ght: s0_ght_nxt};
       l1_btb_req_agent.enq(btb_req);
       l1_bpp_pre_agent.enq(bpp_req);
+      l2_btb_req_agent.enq(btb_req);
+      l2_bpp_pre_agent.enq(bpp_req);
 
       // ras ita loop using l0 info
       IFetch_HAddr_t pch = s0_pch_r[msb(s0_pcl_r)];
@@ -218,51 +217,144 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
           pc_os   : s0_pcl_r,
           ght     : s0_ght_r
           };
-      if (l0_bpp_rsp.br_class == BC_RET) 
+      if (bpp_rsp.br_class == BC_RET) 
         ras_lkup_req_agent.enq(rli_req);
-      if (l0_bpp_rsp.br_class == BC_IND) 
+      else if (bpp_rsp.br_class == BC_IND) 
         ita_lkup_req_agent.enq(rli_req);
-      if (l0_bpp_rsp.br_class == BC_LOOP) 
+      else if (bpp_rsp.br_class == BC_LOOP) 
         loop_lkup_req_agent.enq(rli_req);
+
+      // allocate a new osq
+      if (bpp_rsp.taken)
+      begin
+        osq_mgr.inc_wr();
+      end
+
+      if (  bpp_rsp.br_class != BC_RET
+         || bpp_rsp.br_class != BC_IND
+          )
+        s0_wait_target_pc_r <= True;
+      else if (s0_ras_ita_rdy)
+      begin
+        s0_wait_target_pc_r <= False;
+        match {.pch2, .pcl2} = split_banked_pc(s0_ras_ita_pc_w);
+        s0_pch_nxt = pch2;        
+        s0_pcl_nxt = pcl2;
+      end
+
+      // send to BPQ if not return or indirect
+      if (!s0_wait_target_pc_r)
+      begin
+        let bpq_req = IFC_BPC_BPQ_Pack_t {
+          pc_h           : pch, 
+          pc_os_start    : s0_pcl_r,     
+          pc_os_end      : bpp_rsp.pc_os_end, 
+          bp_id          : s0_bid_r, 
+          has_taken      : bpp_rsp.taken,     
+          has_taken_brcc : bpp_rsp.brcc_taken,     
+          loop_start     : bpp_rsp.br_class == BC_LOOP,
+          cross_boundry  : False,     // TBD
+          itb_l0_btb_id  : Invalid, // TBD   
+          itb_l0_bp_sig  : bpp_rsp.bp_sig     
+          };
+      end
     end
   endrule
 
-  rule rl_lvl1_btb_rsp;
+  rule rl_l1_btb_rsp;
     let btb1_rsp = l1_btb_rsp_agent.first();
     l1_btb_rsp_agent.deq();
-    l1_btb_rsp_w.wset(btb1_rsp);
-  endrule
+    l1_btb_rsp_r <= btb1_rsp;
 
-  rule rl_lvl1_bpp_rsp;
-    let bpp1_rsp = l1_bpp_rsp_agent.first();
-    l1_bpp_rsp_agent.deq();
-    l1_bpp_rsp_w.wset(bpp1_rsp);
-  endrule
-
-  rule rl_req_lvl1_bpp if (l1_btb_rsp_w.wget() matches tagged Valid .l1_btb_rsp);
     // l1 bpp req is using l1 btb rsp, one cycle before bpp rsp
     let btb_req = BPC_BTB_REQ_t{pc_h: s0_pch_r};
     let bpp_req = BPC_L1_BPP_REQ_t{
         pc_os   : s0_pcl_r,
-        btb_rsp : l1_btb_rsp
+        btb_rsp : btb1_rsp
         };
     l1_bpp_req_agent.enq(bpp_req);
   endrule
 
-  rule rl_handle_stage1 if (l1_bpp_rsp_w.wget() matches tagged Valid .l1_bpp_rsp);
+  rule rl_handle_stage1;
     let bpp1_rsp = l1_bpp_rsp_agent.first();
     let loop_rsp = loop_lkup_rsp_agent.first();
     let ras_rsp  = ras_lkup_rsp_agent.first();
     let ita_rsp  = ita_lkup_rsp_agent.first();
 
-    if (l1_bpp_rsp.br_class == BC_RET) 
+    Bool l0_bpp_mispred = bpp1_rsp.taken      != l0_bpp_rsp_r.taken      
+                       || bpp1_rsp.brcc_taken != l0_bpp_rsp_r.brcc_taken 
+                       || bpp1_rsp.pc_os_end  != l0_bpp_rsp_r.pc_os_end  
+                       || bpp1_rsp.brcc_cnt   != l0_bpp_rsp_r.brcc_cnt   
+                       || bpp1_rsp.br_class   != l0_bpp_rsp_r.br_class   
+                       ;
+
+    PC_t s0_ras_ita_pc_nxt = 0;
+    if (bpp1_rsp.br_class == BC_RET && ras_rsp.taken)
+      s0_ras_ita_pc_nxt = ras_rsp.target_pc;
+    if (bpp1_rsp.br_class == BC_IND && ita_rsp.taken) 
+      s0_ras_ita_pc_nxt = ita_rsp.target_pc;
+    s0_ras_ita_pc_w <= s0_ras_ita_pc_nxt;
+
+    if ((bpp1_rsp.br_class == BC_RET || bpp1_rsp.br_class == BC_IND) && s0_bid_r == s1_bid_r)
+      s0_ras_ita_rdy.send();
+
+    // loop prediction not aligned with l0 bpp
+    if (bpp1_rsp.br_class == BC_LOOP) 
     begin
+      if (loop_rsp.taken == l0_bpp_rsp_r.taken)
+        l0_bpp_mispred = True;
     end
-    if (l1_bpp_rsp.br_class == BC_IND) 
+    if (l0_bpp_mispred)
+      s0_bpp_mispred.send();
+
+    //btb target is different
+    if (   bpp1_rsp.br_class != BC_RET
+        && bpp1_rsp.br_class != BC_IND
+        && bpp1_rsp.target_pc != l0_bpp_rsp_r.target_pc
+       )
     begin
+      s0_btb_mispred.send();
     end
-    if (l1_bpp_rsp.br_class == BC_LOOP) 
+  endrule
+
+  rule rl_l2_btb_rsp;
+    let btb2_rsp = l2_btb_rsp_agent.first();
+    l2_btb_rsp_agent.deq();
+    l2_btb_rsp_r <= btb2_rsp;
+
+    // l2 bpp req is using l2 btb rsp, one cycle before bpp rsp
+    let btb_req = BPC_BTB_REQ_t{pc_h: s1_pch_r};
+    let bpp_req = BPC_L2_BPP_REQ_t{
+        pc_os   : s1_pcl_r,
+        btb_rsp : btb2_rsp
+        };
+    l2_bpp_req_agent.enq(bpp_req);
+  endrule
+
+  rule rl_handle_stage2;
+    let bpp2_rsp = l2_bpp_rsp_agent.first();
+
+    Bool l1_bpp_mispred = bpp2_rsp.pc_os_end  != l1_bpp_rsp_r.pc_os_end  
+                       || bpp2_rsp.brcc_cnt   != l1_bpp_rsp_r.brcc_cnt   
+                       || bpp2_rsp.br_class   != l1_bpp_rsp_r.br_class   
+                       ;
+
+    // loop prediction can be different than bpp
+    if (bpp2_rsp.br_class != BC_LOOP) 
+      l1_bpp_mispred = l1_bpp_mispred
+                     || bpp2_rsp.taken      != l1_bpp_rsp_r.taken      
+                     || bpp2_rsp.brcc_taken != l1_bpp_rsp_r.brcc_taken 
+                     ;
+    if (l1_bpp_mispred)
+      s1_bpp_mispred.send();
+
+    //btb target is different
+    if (   bpp2_rsp.br_class != BC_RET
+        && bpp2_rsp.br_class != BC_IND
+        && bpp2_rsp.target_pc != l1_bpp_rsp_r.target_pc
+       )
     begin
+      s1_btb_mispred.send();
     end
   endrule
   // ----------------

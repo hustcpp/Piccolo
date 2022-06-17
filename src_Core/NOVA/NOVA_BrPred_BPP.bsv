@@ -85,6 +85,21 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
     return res;
   endfunction
 
+  function Maybe#(PC_t) sel_btb_pc(IFetch_LAddr_t pc_os_end, 
+                                Vector#(2, BPC_BTB_MAP_ENTRY_t) btb_map, 
+                                Vector#(2, BPC_BTB_ADDR_ENTRY_t) btb_addr
+                            );
+    
+    bit os_end_msb = msb(pc_os_end);
+    IFetch_HF_POS_t sel = truncate(pc_os_end);
+    let target_pos = btb_map[os_end_msb].target_pos;
+    let target_pcs = btb_addr[os_end_msb].target_pc;
+    Maybe#(PC_t) target_pc = Invalid;
+    if (target_pos[sel] matches tagged Valid .pos)
+      target_pc = target_pcs[pos];
+    return target_pc;
+  endfunction
+
   rule handle_lkup if (pht_wire.wget matches tagged Valid .pht_rd);
     let val = req.first();
     rsp_t rspv = unpack(fromInteger(valueOf(0)));
@@ -100,6 +115,7 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
         begin
           Bool taken = False;
           Bool is_brcc = False;
+          if (isValid(val.btb_rsp.btb_id[i]))
           case (val.btb_rsp.btb_info[i].br_class[j]) matches
             BC_NO:      // not a branch or jump
               begin
@@ -171,7 +187,7 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
       rspv.brcc_cnt = rspv.brcc_cnt + zeroExtend(brccs[j]);
     end
 
-    rspv.pc_os_end = end_pos.Valid;
+    rspv.pc_os_end = isValid(end_pos) ? end_pos.Valid : fromInteger(-1);
     IFetch_HF_POS_t lsb_os = truncate(rspv.pc_os_end);
     bit msb_os = msb(rspv.pc_os_end);
     bit msb_b_os = ~msb_os;
@@ -188,6 +204,8 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
     rspv.taken = isValid(end_pos);
     if (rspv.taken)
       rspv.bp_sig = sig;
+    
+    rspv.target_pc = sel_btb_pc(rspv.pc_os_end, val.btb_rsp.btb_map, val.btb_rsp.btb_addr);
     rsp_wire.wset(rspv);
   endrule
 

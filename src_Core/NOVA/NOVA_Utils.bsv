@@ -236,9 +236,6 @@ module mkSpCache (SpCache#(entries, asso, data_t, addr_t, idx_t, asso_t))
   RegFile#(idx_t, Vector#(asso, SpC_tag_pack_t#(tag_t))) tag_ram  <- mkRegFile(0, fromInteger(valueOf(sets_max)));
   LFSR#(Bit#(16)) asso_sel <- mkLFSR_16;
 
-  rule rl_handle_find_hit;
-  endrule
-  
   function Maybe#(asso_t) i_find_hit(idx_t idx, tag_t tag, Vector#(asso, SpC_tag_pack_t#(tag_t)) tag_rd);
     Maybe#(asso_t) asso_res = Invalid;
     for (Integer i = 0; i < valueOf(asso); i=i+1)
@@ -533,5 +530,19 @@ module mkSRegA#(parameter a_type resetval) (Reg#(a_type))
     return i_wire;
   endmethod
 endmodule
+
+function Tuple2#(IFetch_HAddr_t, IFetch_LAddr_t) split_pc(PC_t addr);
+  IFetch_HAddr_t pch = truncate(addr >> valueOf(NOVA_CFG_BPC_FETCH_AW));
+  IFetch_LAddr_t pcl = truncate(addr);
+  return tuple2(pch, pcl);
+endfunction
+
+function Tuple2#(Vector#(2, IFetch_HAddr_t), IFetch_LAddr_t) split_banked_pc(PC_t addr);
+  Vector#(2, IFetch_HAddr_t) pchs;
+  match {.pch, .pcl} = split_pc(addr);
+  pchs[1] = pch;        
+  pchs[0] = pch + zeroExtend(msb(pcl));
+  return tuple2(pchs, pcl);
+endfunction
 
 endpackage
