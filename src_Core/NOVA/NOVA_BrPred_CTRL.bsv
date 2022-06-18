@@ -48,13 +48,13 @@ typedef struct {
 } BPC_CTRL_Pack_t
 deriving (FShow, Bits);
 
-(* synthesize *)
-module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
+//(* synthesize *)
+module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
   // ----------------
   // Instances
   FIFOF #(BPC_IFC_FBU_Pack_t)   ifc_fbu_fifo   <- mkFIFOF;
   FIFOF #(ROB_BPC_CMT_Pack_t)   rob_cmt_fifo   <- mkFIFOF;
-  FIFOF #(ROB_BPC_FLUSH_Pack_t) rob_flush_fifo  <- mkFIFOF;
+  FIFOF #(ROB_BPC_FLUSH_Pack_t) rob_flush_fifo <- mkFIFOF;
   FIFOF #(BPC_IFC_ITBF_Pack_t)  itb_flush_fifo <- mkFIFOF;
 
   FIFOMgr#(NOVA_CFG_BPC_BP_ID_NUM, BP_ID_t)
@@ -74,6 +74,7 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
   Reg#(Bool)        s0_wait_target_pc_r <- mkSRegA(False);
   Wire#(PC_t)           s0_ras_ita_pc_w <- mkWire;
   PulseWire              s0_ras_ita_rdy <- mkPulseWire;
+  PulseWire                s0_alloc_osq <- mkPulseWire;
 
   Reg#(Vector#(2, IFetch_HAddr_t))
                                s1_pch_r <- mkSRegA(replicate(fromInteger(valueOf(NOVA_CFG_RESET_PCH))));
@@ -106,39 +107,6 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
   Reg#(BPC_L2_BTB_RSP_t)       l2_btb_rsp_r <- mkRegA(unpack(fromInteger(0)));
   Reg#(BPC_L2_BPP_RSP_t)       l2_bpp_rsp_r <- mkRegA(unpack(fromInteger(0)));
 
-  GPCvt #(BPC_BTB_REQ_t)       l0_btb_req_agent   <- mkGPCvt;
-  GPCvt #(BPC_L0_BTB_RSP_t)    l0_btb_rsp_agent   <- mkGPCvt;
-  GPCvt #(BPC_L0_BPP_REQ_t)    l0_bpp_req_agent   <- mkGPCvt;
-  GPCvt #(BPC_L0_BPP_RSP_t)    l0_bpp_rsp_agent   <- mkGPCvt;
-  GPCvt#(BPC_BPP_LKUP_REQ_t)   l0_bpp_pre_agent   <- mkGPCvt;
-
-  GPCvt #(BPC_BTB_REQ_t)       l1_btb_req_agent   <- mkGPCvt;
-  GPCvt #(BPC_L1_BTB_RSP_t)    l1_btb_rsp_agent   <- mkGPCvt;
-  GPCvt #(BPC_L1_BPP_REQ_t)    l1_bpp_req_agent   <- mkGPCvt;
-  GPCvt #(BPC_L1_BPP_RSP_t)    l1_bpp_rsp_agent   <- mkGPCvt;
-  GPCvt#(BPC_BPP_LKUP_REQ_t)   l1_bpp_pre_agent   <- mkGPCvt;
-
-  GPCvt #(BPC_BTB_REQ_t)       l2_btb_req_agent   <- mkGPCvt;
-  GPCvt #(BPC_L2_BTB_RSP_t)    l2_btb_rsp_agent   <- mkGPCvt;
-  GPCvt #(BPC_L2_BPP_REQ_t)    l2_bpp_req_agent   <- mkGPCvt;
-  GPCvt #(BPC_L2_BPP_RSP_t)    l2_bpp_rsp_agent   <- mkGPCvt;
-  GPCvt#(BPC_BPP_LKUP_REQ_t)   l2_bpp_pre_agent   <- mkGPCvt;
-
-  GPCvt#(BPC_SPLBP_REQ_t)      ras_lkup_req_agent <- mkGPCvt;
-  GPCvt#(BPC_RAS_RSP_t)        ras_lkup_rsp_agent <- mkGPCvt;
-  GPCvt#(BPC_SPLBP_ALLOC_t)    ras_alloc_agent    <- mkGPCvt;
-  GPCvt#(BPC_RAS_CMT_t)        ras_cmt_agent      <- mkGPCvt;
-
-  GPCvt#(BPC_SPLBP_REQ_t)      ita_lkup_req_agent <- mkGPCvt;
-  GPCvt#(BPC_ITA_RSP_t)        ita_lkup_rsp_agent <- mkGPCvt;
-  GPCvt#(BPC_SPLBP_ALLOC_t)    ita_alloc_agent    <- mkGPCvt;
-  GPCvt#(BPC_ITA_CMT_t)        ita_cmt_agent      <- mkGPCvt;
-
-  GPCvt#(BPC_SPLBP_REQ_t)      loop_lkup_req_agent <- mkGPCvt;
-  GPCvt#(BPC_LOOP_RSP_t)       loop_lkup_rsp_agent <- mkGPCvt;
-  GPCvt#(BPC_SPLBP_ALLOC_t)    loop_alloc_agent    <- mkGPCvt;
-  GPCvt#(BPC_LOOP_CMT_t)       loop_cmt_agent      <- mkGPCvt;
-
   // ----------------
   // States
 
@@ -147,13 +115,12 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
   rule rl_req_lvl0_btb;
     let btb_req = BPC_BTB_REQ_t{pc_h: s0_pch_r};
     let bpp_req = BPC_BPP_LKUP_REQ_t{btb_req: btb_req, ght: s0_ght_r};
-    l0_btb_req_agent.enq(btb_req);
-    l0_bpp_pre_agent.enq(bpp_req);
+    ifc.l0_btb.request.put(btb_req);
+    ifc.l0_bpp_pre_lkup.put(bpp_req);
   endrule
 
   rule rl_rsp_lvl0_btb;
-    let btb_rsp = l0_btb_rsp_agent.first();
-    l0_btb_rsp_agent.deq();
+    let btb_rsp <- ifc.l0_btb.response.get();
     l0_btb_rsp_w.wset(btb_rsp);
   endrule
 
@@ -163,12 +130,12 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
         pc_os   : s0_pcl_r,
         btb_rsp : l0_btb_rsp
         };
-    l0_bpp_req_agent.enq(bpp_req);  
+    ifc.l0_bpp.request.put(bpp_req);  
   endrule
 
   rule rl_handle_stage0;
     let btb_rsp = l0_btb_rsp_w.wget().Valid;
-    let bpp_rsp = l0_bpp_rsp_agent.first();
+    let bpp_rsp <- ifc.l0_bpp.response.get();
     Vector#(2, IFetch_HAddr_t) s0_pch_nxt = s0_pch_r;
     IFetch_LAddr_t             s0_pcl_nxt = s0_pcl_r;
     BPC_BHT_t                  s0_ght_nxt = s0_ght_r;
@@ -205,10 +172,10 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
 
       let btb_req = BPC_BTB_REQ_t{pc_h: s0_pch_nxt};
       let bpp_req = BPC_BPP_LKUP_REQ_t{btb_req: btb_req, ght: s0_ght_nxt};
-      l1_btb_req_agent.enq(btb_req);
-      l1_bpp_pre_agent.enq(bpp_req);
-      l2_btb_req_agent.enq(btb_req);
-      l2_bpp_pre_agent.enq(bpp_req);
+      ifc.l1_btb.request.put(btb_req);
+      ifc.l2_btb.request.put(btb_req);
+      ifc.l1_bpp_pre_lkup.put(bpp_req);
+      ifc.l2_bpp_pre_lkup.put(bpp_req);
 
       // ras ita loop using l0 info
       IFetch_HAddr_t pch = s0_pch_r[msb(s0_pcl_r)];
@@ -218,17 +185,15 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
           ght     : s0_ght_r
           };
       if (bpp_rsp.br_class == BC_RET) 
-        ras_lkup_req_agent.enq(rli_req);
+        ifc.ras_lkup.request.put(rli_req);
       else if (bpp_rsp.br_class == BC_IND) 
-        ita_lkup_req_agent.enq(rli_req);
+        ifc.ita_lkup.request.put(rli_req);
       else if (bpp_rsp.br_class == BC_LOOP) 
-        loop_lkup_req_agent.enq(rli_req);
+        ifc.loop_lkup.request.put(rli_req);
 
       // allocate a new osq
       if (bpp_rsp.taken)
-      begin
-        osq_mgr.inc_wr();
-      end
+        s0_alloc_osq.send();
 
       if (  bpp_rsp.br_class != BC_RET
          || bpp_rsp.br_class != BC_IND
@@ -262,8 +227,7 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
   endrule
 
   rule rl_l1_btb_rsp;
-    let btb1_rsp = l1_btb_rsp_agent.first();
-    l1_btb_rsp_agent.deq();
+    let btb1_rsp <- ifc.l1_btb.response.get();
     l1_btb_rsp_r <= btb1_rsp;
 
     // l1 bpp req is using l1 btb rsp, one cycle before bpp rsp
@@ -272,14 +236,14 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
         pc_os   : s0_pcl_r,
         btb_rsp : btb1_rsp
         };
-    l1_bpp_req_agent.enq(bpp_req);
+    ifc.l1_bpp.request.put(bpp_req);
   endrule
 
   rule rl_handle_stage1;
-    let bpp1_rsp = l1_bpp_rsp_agent.first();
-    let loop_rsp = loop_lkup_rsp_agent.first();
-    let ras_rsp  = ras_lkup_rsp_agent.first();
-    let ita_rsp  = ita_lkup_rsp_agent.first();
+    let bpp1_rsp <- ifc.l1_bpp.response.get();
+    let loop_rsp <- ifc.loop_lkup.response.get();
+    let ras_rsp  <- ifc.ras_lkup.response.get();
+    let ita_rsp  <- ifc.ita_lkup.response.get();
 
     Bool l0_bpp_mispred = bpp1_rsp.taken      != l0_bpp_rsp_r.taken      
                        || bpp1_rsp.brcc_taken != l0_bpp_rsp_r.brcc_taken 
@@ -311,6 +275,7 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
     if (   bpp1_rsp.br_class != BC_RET
         && bpp1_rsp.br_class != BC_IND
         && bpp1_rsp.target_pc != l0_bpp_rsp_r.target_pc
+        && bpp1_rsp.taken
        )
     begin
       s0_btb_mispred.send();
@@ -318,8 +283,7 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
   endrule
 
   rule rl_l2_btb_rsp;
-    let btb2_rsp = l2_btb_rsp_agent.first();
-    l2_btb_rsp_agent.deq();
+    let btb2_rsp <- ifc.l2_btb.response.get();
     l2_btb_rsp_r <= btb2_rsp;
 
     // l2 bpp req is using l2 btb rsp, one cycle before bpp rsp
@@ -328,11 +292,11 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
         pc_os   : s1_pcl_r,
         btb_rsp : btb2_rsp
         };
-    l2_bpp_req_agent.enq(bpp_req);
+    ifc.l2_bpp.request.put(bpp_req);
   endrule
 
   rule rl_handle_stage2;
-    let bpp2_rsp = l2_bpp_rsp_agent.first();
+    let bpp2_rsp <- ifc.l2_bpp.response.get();
 
     Bool l1_bpp_mispred = bpp2_rsp.pc_os_end  != l1_bpp_rsp_r.pc_os_end  
                        || bpp2_rsp.brcc_cnt   != l1_bpp_rsp_r.brcc_cnt   
@@ -352,11 +316,32 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
     if (   bpp2_rsp.br_class != BC_RET
         && bpp2_rsp.br_class != BC_IND
         && bpp2_rsp.target_pc != l1_bpp_rsp_r.target_pc
+        && bpp2_rsp.taken
        )
     begin
       s1_btb_mispred.send();
     end
   endrule
+
+  rule rl_handle_osq;
+    
+    if (s1_btb_mispred || s1_bpp_mispred)
+    begin
+      // select s2 to reset osq  
+      osq_mgr.set_wr(s2_bid_r);
+    end
+    else if (s0_btb_mispred || s0_bpp_mispred)
+    begin
+      // select s1 to reset osq  
+      osq_mgr.set_wr(s1_bid_r);
+    end
+    else if (s0_alloc_osq)
+    begin
+      // allocate new entry when  
+      osq_mgr.inc_wr();
+    end
+  endrule
+
   // ----------------
   // method
 
@@ -366,30 +351,6 @@ module mkNOVA_BPC_CTRL (NOVA_BPC_CTRL_IFC);
   interface rob_cmt_intf   = toPut(rob_cmt_fifo);
   interface rob_flush_intf = toPut(rob_flush_fifo);
   interface itb_flush_intf = toPut(itb_flush_fifo);
-
-  interface l0_btb_client  = toGPClient(l0_btb_req_agent, l0_btb_rsp_agent);
-  interface l0_bpp_client  = toGPClient(l0_bpp_req_agent, l0_bpp_rsp_agent);
-  interface l0_bpp_pre_lkup = toGet(l0_bpp_pre_agent);
-
-  interface l1_btb_client  = toGPClient(l1_btb_req_agent, l1_btb_rsp_agent);
-  interface l1_bpp_client  = toGPClient(l1_bpp_req_agent, l1_bpp_rsp_agent);
-  interface l1_bpp_pre_lkup = toGet(l1_bpp_pre_agent);
-
-  interface l2_btb_client  = toGPClient(l2_btb_req_agent, l2_btb_rsp_agent);
-  interface l2_bpp_client  = toGPClient(l2_bpp_req_agent, l2_bpp_rsp_agent);
-  interface l2_bpp_pre_lkup = toGet(l2_bpp_pre_agent);
-
-  interface ras_lkup_client  = toGPClient(ras_lkup_req_agent, ras_lkup_rsp_agent);
-  interface ras_alloc        = toGet(ras_alloc_agent);
-  interface ras_cmt          = toGet(ras_cmt_agent);
-
-  interface loop_lkup_client = toGPClient(loop_lkup_req_agent, loop_lkup_rsp_agent);
-  interface loop_alloc       = toGet(loop_alloc_agent);
-  interface loop_cmt         = toGet(loop_cmt_agent);
-
-  interface ita_lkup_client  = toGPClient(ita_lkup_req_agent, ita_lkup_rsp_agent);
-  interface ita_alloc        = toGet(ita_alloc_agent);
-  interface ita_cmt          = toGet(ita_cmt_agent);
 
 endmodule: mkNOVA_BPC_CTRL
 

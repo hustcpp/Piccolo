@@ -72,10 +72,8 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
   FreeQueMgr#(NOVA_CFG_LOOP_MAP_ENTRIES, LOOP_MAP_ID_t)
                             map_mgr   <- mkFreeQueMgr;
 
-  GPCvt #(BPC_SPLBP_REQ_t)                req_agent   <- mkGPCvt;
-  GPCvt #(BPC_LOOP_RSP_t)                 rsp_agent   <- mkGPCvt;
-  GPCvt #(BPC_SPLBP_ALLOC_t)              alloc_agent <- mkGPCvt;
-  GPCvt #(BPC_LOOP_CMT_t)                 cmt_agent   <- mkGPCvt;
+  FIFOF #(BPC_LOOP_RSP_t)                 rsp_agent   <- mkPipelineFIFOF;
+  RWire#(BPC_LOOP_CMT_t)                  cmt_wire    <- mkRWireSBR;
 
   RWire#(LOOP_MAP_ID_t)                   new_map_id_w      <- mkRWireSBR;
   Wire#(Loop_Cnt_t)                       new_map_cnt_w     <- mkWire;
@@ -100,18 +98,19 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
 
   // ----------------
   // Rules 
-  rule rl_handle_alloc;
-    let           reqv = alloc_agent.first();
-    PC_t          pc   = {reqv.pc_h, reqv.pc_os};
-    alloc_agent.deq();
-  endrule
+  let alloc_put =
+  (interface Put#(BPC_SPLBP_ALLOC_t);
+    method Action put(BPC_SPLBP_ALLOC_t reqv);
+      PC_t          pc   = {reqv.pc_h, reqv.pc_os};
+    endmethod
+  endinterface);
 
-  rule rl_handle_lkup;
-    let            reqv = req_agent.first();
+  let req_put =
+  (interface Put#(BPC_SPLBP_REQ_t);
+    method Action put(BPC_SPLBP_REQ_t reqv);
     BPC_LOOP_RSP_t rspv = unpack(fromInteger(0));
     PC_t           pc   = {reqv.pc_h, reqv.pc_os};
     let cache_data = cnt_cache.rd_data(pc);
-    req_agent.deq();
 
     LOOP_MAP_ID_t map_id = unpack(fromInteger(0));
     Maybe#(LOOP_MAP_ID_t) map_hit_id = Invalid;
@@ -170,10 +169,17 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
     osq_mgr.inc_wr();
     osq_id_r[osq_wr] <= map_id;
     rsp_agent.enq(rspv);
-  endrule
+    endmethod
+  endinterface);
+
+  let cmt_put =
+  (interface Put#(BPC_LOOP_CMT_t);
+    method Action put(BPC_LOOP_CMT_t reqv) if (!retire_flush);
+      cmt_wire.wset(reqv);
+    endmethod
+  endinterface);
 
   rule rl_handle_cmt;
-    let           reqv = cmt_agent.first();
     Bit#(NOVA_CFG_LOOP_OSQ_ENTRIES) osq_flush_nxt = osq_flush;
     Bool osq_rd_inc = False;
     LOOP_OSQ_ID_t flush_cnt = 0;
@@ -204,59 +210,49 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
       map_osq_nxt[inc_map_id] = map_osq_r[inc_map_id] + 1;
     end
 
-    if (reqv.flush matches tagged Valid .flush_id)
+    if (cmt_wire.wget matches tagged Valid .reqv)
     begin
-      match {.map_id, .osq_id} = flush_id;
-      // mark osq entries as flushed
-      for (Integer i = 0; i < valueOf(NOVA_CFG_LOOP_OSQ_ENTRIES); i=i+1)
+      if (reqv.flush matches tagged Valid .flush_id)
       begin
-        LOOP_OSQ_ID_t ii = fromInteger(i);
-        if (osq_mgr.is_valid(ii, osq_id) && osq_flush[i] == 1'b0)
+        match {.map_id, .osq_id} = flush_id;
+        // mark osq entries as flushed
+        for (Integer i = 0; i < valueOf(NOVA_CFG_LOOP_OSQ_ENTRIES); i=i+1)
         begin
-          osq_flush_nxt[i] = 1'b1;
-          flush_cnt = flush_cnt + 1;
+          LOOP_OSQ_ID_t ii = fromInteger(i);
+          if (osq_mgr.is_valid(ii, osq_id) && osq_flush[i] == 1'b0)
+          begin
+            osq_flush_nxt[i] = 1'b1;
+            flush_cnt = flush_cnt + 1;
+          end
         end
-      end
-      // update map cnt
-      map_cnt_nxt[map_id] = map_cnt_r[map_id] - zeroExtend(flush_cnt);
-      map_osq_nxt[map_id] = map_osq_r[map_id] - flush_cnt;
-
-      // if this is a mispred and the pc is in training, the cur cnt is the max cnt
-      // need to update cache with this max cnt
-      if (reqv.flush_mispred && map_trained_r[map_id] == 1'b0)
-      begin
-        map_max_nxt[map_id] = map_cnt_nxt[map_id];
-        map_trained_nxt[map_id] = 1'b1;
-      end
-    end
-
-    if (reqv.commit || reqv.excp)
-    begin
-      osq_flush_nxt[osq_rd] = 1'b0;
-      if (!retire_flush)
-      begin
-        if (reqv.commit)
-        begin
-          cmt_agent.deq();
-        end
-        else if (reqv.excp)
-        begin
-          cmt_agent.deq();
-        end
-      end 
-
-      // freeup osq rd
-      osq_rd_inc = True;
-
-      // push pop retire loop
-      if (reqv.commit && !retire_flush)
-      begin
         // update map cnt
-        map_cnt_nxt[retire_id] = map_cnt_r[retire_id] - 1;
-        map_osq_nxt[retire_id] = map_osq_r[retire_id] - 1;
+        map_cnt_nxt[map_id] = map_cnt_r[map_id] - zeroExtend(flush_cnt);
+        map_osq_nxt[map_id] = map_osq_r[map_id] - flush_cnt;
+
+        // if this is a mispred and the pc is in training, the cur cnt is the max cnt
+        // need to update cache with this max cnt
+        if (reqv.flush_mispred && map_trained_r[map_id] == 1'b0)
+        begin
+          map_max_nxt[map_id] = map_cnt_nxt[map_id];
+          map_trained_nxt[map_id] = 1'b1;
+        end
+      end
+
+      if (reqv.commit || reqv.excp)
+      begin
+        osq_flush_nxt[osq_rd] = 1'b0;
+        // freeup osq rd
+        osq_rd_inc = True;
+
+        // push pop retire loop
+        if (reqv.commit && !retire_flush)
+        begin
+          // update map cnt
+          map_cnt_nxt[retire_id] = map_cnt_r[retire_id] - 1;
+          map_osq_nxt[retire_id] = map_osq_r[retire_id] - 1;
+        end
       end
     end else begin
-      cmt_agent.deq();
       if (retire_flush)
       begin
         osq_flush_nxt[osq_rd] = 1'b0;
@@ -295,9 +291,9 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
 
   // ----------------
   // Interfaces
-  interface lkup_server = toGPServer(req_agent, rsp_agent);
-  interface alloc       = toPut(alloc_agent);
-  interface cmt         = toPut(cmt_agent);
+  interface lkup_server = toGPServer(req_put, rsp_agent);
+  interface alloc       = toPut(alloc_put);
+  interface cmt         = toPut(cmt_put);
 endmodule: mkNOVA_BPC_LOOP
 
 endpackage

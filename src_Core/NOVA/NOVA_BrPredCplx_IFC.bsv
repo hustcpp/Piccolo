@@ -293,40 +293,43 @@ interface NOVA_BPC_CTRL_IFC;
   interface Put #(ROB_BPC_CMT_Pack_t)  rob_cmt_intf;
   interface Put #(ROB_BPC_FLUSH_Pack_t) rob_flush_intf;
   interface Put #(BPC_IFC_ITBF_Pack_t) itb_flush_intf;
-  interface Get #(IFC_BPC_BRF_Pack_t)  bpq_flush_intf;
-  interface Get #(IFC_BPC_BPQ_Pack_t)  bpq_enq_intf;
+endinterface
 
-  interface Client#(BPC_BTB_REQ_t   , BPC_L0_BTB_RSP_t) l0_btb_client;
-  interface Client#(BPC_BTB_REQ_t   , BPC_L1_BTB_RSP_t) l1_btb_client;
-  interface Client#(BPC_BTB_REQ_t   , BPC_L2_BTB_RSP_t) l2_btb_client;
+interface NOVA_BPC_CTRL_Int_IFC;
+  interface Put #(IFC_BPC_BRF_Pack_t)  bpq_flush_intf;
+  interface Put #(IFC_BPC_BPQ_Pack_t)  bpq_enq_intf;
 
-  interface Client#(BPC_L0_BPP_REQ_t, BPC_L0_BPP_RSP_t) l0_bpp_client;
-  interface Client#(BPC_L1_BPP_REQ_t, BPC_L1_BPP_RSP_t) l1_bpp_client;
-  interface Client#(BPC_L2_BPP_REQ_t, BPC_L2_BPP_RSP_t) l2_bpp_client;
+  interface Server#(BPC_BTB_REQ_t   , BPC_L0_BTB_RSP_t) l0_btb;
+  interface Server#(BPC_BTB_REQ_t   , BPC_L1_BTB_RSP_t) l1_btb;
+  interface Server#(BPC_BTB_REQ_t   , BPC_L2_BTB_RSP_t) l2_btb;
 
-  interface Client#(BPC_L0_BTB_UPDT_REQ_t, BPC_L0_BTB_UPDT_RSP_t) l0_btb_updt_client;
-  interface Client#(BPC_L1_BTB_UPDT_REQ_t, BPC_L1_BTB_UPDT_RSP_t) l1_btb_updt_client;
-  interface Client#(BPC_L2_BTB_UPDT_REQ_t, BPC_L2_BTB_UPDT_RSP_t) l2_btb_updt_client;
+  interface Server#(BPC_L0_BPP_REQ_t, BPC_L0_BPP_RSP_t) l0_bpp;
+  interface Server#(BPC_L1_BPP_REQ_t, BPC_L1_BPP_RSP_t) l1_bpp;
+  interface Server#(BPC_L2_BPP_REQ_t, BPC_L2_BPP_RSP_t) l2_bpp;
 
-  interface Client#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t)    l0_bpp_updt_client;
-  interface Client#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t)    l1_bpp_updt_client;
-  interface Client#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t)    l2_bpp_updt_client;
+  interface Server#(BPC_L0_BTB_UPDT_REQ_t, BPC_L0_BTB_UPDT_RSP_t) l0_btb_updt;
+  interface Server#(BPC_L1_BTB_UPDT_REQ_t, BPC_L1_BTB_UPDT_RSP_t) l1_btb_updt;
+  interface Server#(BPC_L2_BTB_UPDT_REQ_t, BPC_L2_BTB_UPDT_RSP_t) l2_btb_updt;
 
-  interface Get#(BPC_BPP_LKUP_REQ_t) l0_bpp_pre_lkup;
-  interface Get#(BPC_BPP_LKUP_REQ_t) l1_bpp_pre_lkup;
-  interface Get#(BPC_BPP_LKUP_REQ_t) l2_bpp_pre_lkup;
+  interface Server#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t)    l0_bpp_updt;
+  interface Server#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t)    l1_bpp_updt;
+  interface Server#(BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t)    l2_bpp_updt;
 
-  interface Client#(BPC_SPLBP_REQ_t, BPC_RAS_RSP_t)      ras_lkup_client;
-  interface Get#(BPC_SPLBP_ALLOC_t)                      ras_alloc;
-  interface Get#(BPC_RAS_CMT_t)                          ras_cmt;
+  interface Put#(BPC_BPP_LKUP_REQ_t) l0_bpp_pre_lkup;
+  interface Put#(BPC_BPP_LKUP_REQ_t) l1_bpp_pre_lkup;
+  interface Put#(BPC_BPP_LKUP_REQ_t) l2_bpp_pre_lkup;
 
-  interface Client#(BPC_SPLBP_REQ_t, BPC_ITA_RSP_t)      ita_lkup_client;
-  interface Get#(BPC_SPLBP_ALLOC_t)                      ita_alloc;
-  interface Get#(BPC_ITA_CMT_t)                          ita_cmt;
+  interface Server#(BPC_SPLBP_REQ_t, BPC_RAS_RSP_t)      ras_lkup;
+  interface Put#(BPC_SPLBP_ALLOC_t)                      ras_alloc;
+  interface Put#(BPC_RAS_CMT_t)                          ras_cmt;
 
-  interface Client#(BPC_SPLBP_REQ_t, BPC_LOOP_RSP_t)     loop_lkup_client;
-  interface Get#(BPC_SPLBP_ALLOC_t)                      loop_alloc;
-  interface Get#(BPC_LOOP_CMT_t)                         loop_cmt;
+  interface Server#(BPC_SPLBP_REQ_t, BPC_ITA_RSP_t)      ita_lkup;
+  interface Put#(BPC_SPLBP_ALLOC_t)                      ita_alloc;
+  interface Put#(BPC_ITA_CMT_t)                          ita_cmt;
+
+  interface Server#(BPC_SPLBP_REQ_t, BPC_LOOP_RSP_t)     loop_lkup;
+  interface Put#(BPC_SPLBP_ALLOC_t)                      loop_alloc;
+  interface Put#(BPC_LOOP_CMT_t)                         loop_cmt;
 endinterface
 
 interface NOVA_BrPredCplx_IFC;

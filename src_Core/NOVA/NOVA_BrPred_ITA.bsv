@@ -44,48 +44,49 @@ module mkNOVA_BPC_ITA (NOVA_BPC_ITA_IFC);
   SpCache#(NOVA_CFG_ITA_ENTRIES, NOVA_CFG_ITA_ASSO, PC_t, ITA_IDX_t, ITA_SET_ID_t, ITA_ASSO_ID_t) 
                             cache <- mkSpCache;
 
-  GPCvt #(BPC_SPLBP_REQ_t)                req_agent   <- mkGPCvt;
   FIFOF #(BPC_ITA_RSP_t)                  rsp_agent   <- mkPipelineFIFOF;
-  GPCvt #(BPC_SPLBP_ALLOC_t)              alloc_agent <- mkGPCvt;
-  GPCvt #(BPC_ITA_CMT_t)                  cmt_agent   <- mkGPCvt;
 
   // ----------------
   // States
 
   // ----------------
   // Rules 
-  rule rl_handle_alloc;
-    let           reqv = alloc_agent.first();
+  let alloc_put =
+  (interface Put#(BPC_SPLBP_ALLOC_t);
+    method Action put(BPC_SPLBP_ALLOC_t reqv);
     PC_t          pc   = {reqv.pc_h, reqv.pc_os};
     ITA_IDX_t     idx  = truncate(pc) ^ truncate(reqv.ght);
     cache.wr_data(idx, reqv.target_pc);
-  endrule
+    endmethod
+  endinterface);
 
-  rule rl_handle_lkup;
-    let            reqv = req_agent.first();
+  let req_put =
+  (interface Put#(BPC_SPLBP_REQ_t);
+    method Action put(BPC_SPLBP_REQ_t reqv);
     BPC_ITA_RSP_t  rspv = unpack(fromInteger(0));
     PC_t           pc   = {reqv.pc_h, reqv.pc_os};
     ITA_IDX_t     idx  = truncate(pc) ^ truncate(reqv.ght);
     let cache_data = cache.rd_data(idx);
     rspv.taken = isValid(cache_data); // indicate ITA has a predication
     rspv.target_pc = cache_data.Valid;
-    req_agent.deq();
     rsp_agent.enq(rspv);
-  endrule
+    endmethod
+  endinterface);
 
-  rule rl_handle_cmt;
-    let           reqv = cmt_agent.first();
-    cmt_agent.deq();
-  endrule
+  let cmt_put =
+  (interface Put#(BPC_ITA_CMT_t);
+    method Action put(BPC_ITA_CMT_t reqv);
+    endmethod
+  endinterface);
 
   // ----------------
   // method
 
   // ----------------
   // Interfaces
-  interface lkup_server = toGPServer(req_agent, rsp_agent);
-  interface alloc       = toPut(alloc_agent);
-  interface cmt         = toPut(cmt_agent);
+  interface lkup_server = toGPServer(req_put, rsp_agent);
+  interface alloc       = toPut(alloc_put);
+  interface cmt         = toPut(cmt_put);
 endmodule: mkNOVA_BPC_ITA
 
 endpackage

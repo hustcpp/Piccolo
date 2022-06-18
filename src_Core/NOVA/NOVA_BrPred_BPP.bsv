@@ -55,15 +55,8 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
   // Instances
   Vector#(2, RegFile#(bpp_sig_t, Vector#(NOVA_CFG_BPC_FETCH_HW,IFC_PHTE_t))) 
                             pht <- replicateM(mkRegFileFull());
-
-  GPCvt #(req_t)         req         <- mkGPCvt;
-  GPCvt #(updt_req_t)    updt_req    <- mkGPCvt;
-  GPCvt #(updt_rsp_t)    updt_rsp    <- mkGPCvt;
-  GPCvt #(BPC_BPP_LKUP_REQ_t) prereq <- mkGPCvt;
-
-  RWire#(rsp_t)          rsp_wire      <- mkRWireSBR;
-  RWire#(updt_rsp_t)     updt_rsp_wire <- mkRWireSBR;
-  RWire#(Vector#(2, Vector#(NOVA_CFG_BPC_FETCH_HW,IFC_PHTE_t))) pht_wire <- mkRWireSBR;
+  Wire#(updt_rsp_t)      updt_rsp_wire <- mkWire;
+  Wire#(Vector#(2, Vector#(NOVA_CFG_BPC_FETCH_HW,IFC_PHTE_t))) pht_wire <- mkWire;
 
   // ----------------
   // States
@@ -100,8 +93,7 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
     return target_pc;
   endfunction
 
-  rule handle_lkup if (pht_wire.wget matches tagged Valid .pht_rd);
-    let val = req.first();
+  function rsp_t fn_handle_lkup(req_t val, Vector#(2, Vector#(NOVA_CFG_BPC_FETCH_HW,IFC_PHTE_t)) pht_rd);
     rsp_t rspv = unpack(fromInteger(valueOf(0)));
     Vector#(2, Bit#(NOVA_CFG_BPC_FETCH_HW)) res_taken  = replicate('b0);
     Vector#(2, Bit#(NOVA_CFG_BPC_FETCH_HW)) res_is_brcc   = replicate('b0);
@@ -206,37 +198,32 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_hf_entries, r
       rspv.bp_sig = sig;
     
     rspv.target_pc = sel_btb_pc(rspv.pc_os_end, val.btb_rsp.btb_map, val.btb_rsp.btb_addr);
-    rsp_wire.wset(rspv);
-  endrule
+    return rspv;
+  endfunction
 
-  rule handle_updt;
-    let val = updt_req.first();
-    BPC_BPP_UPDT_RSP_t rspv = unpack('b0);
-    bpp_sig_t idx1 = truncate(pack(val.pc_h));
-    bpp_sig_t idx2 = truncate(pack(val.ght));
-    bpp_sig_t idx = idx1 ^ idx2;
-    IFetch_HF_POS_t lsb_os = truncate(val.pc_os);
-    Vector#(NOVA_CFG_BPC_FETCH_HW,IFC_PHTE_t) phts = pht[msb(val.pc_os)].sub(idx);
-    phts[lsb_os] = updt(phts[lsb_os], val.taken);
-    pht[msb(val.pc_os)].upd(idx, phts);
-    updt_rsp.enq(rspv);
-  endrule
+  let updt_req_put =
+  (interface Put#(updt_req_t);
+    method Action put(updt_req_t val);
+      updt_rsp_t rspv = unpack('b0);
+      bpp_sig_t idx1 = truncate(pack(val.pc_h));
+      bpp_sig_t idx2 = truncate(pack(val.ght));
+      bpp_sig_t idx = idx1 ^ idx2;
+      IFetch_HF_POS_t lsb_os = truncate(val.pc_os);
+      Vector#(NOVA_CFG_BPC_FETCH_HW,IFC_PHTE_t) phts = pht[msb(val.pc_os)].sub(idx);
+      phts[lsb_os] = updt(phts[lsb_os], val.taken);
+      pht[msb(val.pc_os)].upd(idx, phts);
+      updt_rsp_wire <= rspv;
+    endmethod
+  endinterface);
+  
+  let updt_rsp_get = 
+  (interface Get#(updt_rsp_t);
+    method ActionValue#(updt_rsp_t) get();
+      return updt_rsp_wire;
+    endmethod
+  endinterface);
 
-if (valueOf(odly) == 0)
-begin
-  GPCvt #(rsp_t)              rsp       <- mkGPCvt;
-
-  rule rl_rsp_odly if (rsp_wire.wget() matches tagged Valid .rspd);
-    rsp.enq(rspd);
-  endrule
-
-  rule accept_lkup if (rsp.deq_ready());
-    req.deq();
-    prereq.deq();
-  endrule
-
-  rule rl_rd_pht;
-    let val = prereq.first();
+  function Vector#(2, Vector#(NOVA_CFG_BPC_FETCH_HW,IFC_PHTE_t)) fn_rd_pht(BPC_BPP_LKUP_REQ_t val);
     Vector#(2, Vector#(NOVA_CFG_BPC_FETCH_HW,IFC_PHTE_t)) pht_rd;
     for (Integer i = 0; i < 2; i=i+1)
     begin
@@ -245,36 +232,62 @@ begin
       bpp_sig_t idx = idx1 ^ idx2;
       pht_rd[i] = pht[i].sub(idx);
     end
-    pht_wire.wset(pht_rd);
-  endrule
+    return pht_rd;
+  endfunction
 
-  rule accept_updt if (updt_rsp.deq_ready());
-    updt_req.deq();
-  endrule
+if (valueOf(odly) == 0)
+begin
+  Wire#(rsp_t)           rsp_wire      <- mkWire;
+
+  let prereq_put =
+  (interface Put#(req_t);
+    method Action put(BPC_BPP_LKUP_REQ_t val);
+      let pht_rd = fn_rd_pht(val);
+      pht_wire <= pht_rd;
+    endmethod
+  endinterface);
+
+  let req_put =
+  (interface Put#(req_t);
+    method Action put(req_t val);
+      let rspv = fn_handle_lkup(val, pht_wire);
+      rsp_wire <= rspv;
+    endmethod
+  endinterface);
+
+  let rsp_get = 
+  (interface Get#(rsp_t);
+    method ActionValue#(rsp_t) get();
+      return rsp_wire;
+    endmethod
+  endinterface);
 
   // ----------------
   // Interfaces
-  interface updt_server  = toGPServer(updt_req, updt_rsp);
-  interface pre_lkup_put = toPut(prereq);
-  interface lkup_server  = toGPServer(req, rsp);
+  interface updt_server  = toGPServer(updt_req_put, updt_rsp_get);
+  interface pre_lkup_put = toPut(prereq_put);
+  interface lkup_server  = toGPServer(req_put, rsp_get);
 end else begin
   Vector#(odly, FIFOF#(Vector#(2, Vector#(NOVA_CFG_BPC_FETCH_HW,IFC_PHTE_t))))      
                 pht_rd_stages      <- replicateM(mkPipelineFIFOF); 
 
   FIFOF#(rsp_t) rsp_fifo      <- mkPipelineFIFOF;
 
-  rule rl_rd_pht;
-    let val = prereq.first();
-    Vector#(2, Vector#(NOVA_CFG_BPC_FETCH_HW,IFC_PHTE_t)) pht_rd;
-    for (Integer i = 0; i < 2; i=i+1)
-    begin
-      bpp_sig_t idx1 = truncate(pack(val.btb_req.pc_h[i]));
-      bpp_sig_t idx2 = truncate(pack(val.ght));
-      bpp_sig_t idx = idx1 ^ idx2;
-      pht_rd[i] = pht[i].sub(idx);
-    end
-    pht_rd_stages[0].enq(pht_rd);
-  endrule
+  let prereq_put =
+  (interface Put#(req_t);
+    method Action put(BPC_BPP_LKUP_REQ_t val);
+      let pht_rd = fn_rd_pht(val);
+      pht_rd_stages[0].enq(pht_rd);
+    endmethod
+  endinterface);
+
+  let req_put =
+  (interface Put#(req_t);
+    method Action put(req_t val);
+      let rspv = fn_handle_lkup(val, pht_wire);
+      rsp_fifo.enq(rspv);
+    endmethod
+  endinterface);
 
   for (Integer i = 1; i < valueOf(odly); i=i+1)
   begin
@@ -290,23 +303,14 @@ end else begin
   rule rl_pht_rd;
     let a = pht_rd_stages[valueOf(odly)-1].first();
     pht_rd_stages[valueOf(odly)-1].deq();
-    pht_wire.wset(a);
-  endrule
-
-  rule accept_lkup if (rsp_wire.wget() matches tagged Valid .rspd);
-    req.deq();
-    rsp_fifo.enq(rspd);
-  endrule
-
-  rule accept_updt if (updt_rsp_wire.wget() matches tagged Valid .updt_rspv);
-    updt_req.deq();
+    pht_wire <= a;
   endrule
 
   // ----------------
   // Interfaces
-  interface updt_server  = toGPServer(updt_req, updt_rsp);
-  interface pre_lkup_put = toPut(prereq);
-  interface lkup_server  = toGPServer(req, rsp_fifo);
+  interface updt_server  = toGPServer(updt_req_put, updt_rsp_get);
+  interface pre_lkup_put = toPut(prereq_put);
+  interface lkup_server  = toGPServer(req_put, rsp_fifo);
 end
   // ----------------
   // method

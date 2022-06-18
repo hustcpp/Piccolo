@@ -9,101 +9,6 @@ import LFSR         :: *;
 import ISA_Decls       :: *;
 import NOVA_Decls      :: *;
 
-// utility module to convert a get put interface to fifo like with no delay
-interface GPCvt#(type a_type);
-  method Action enq( a_type x);
-  method Action deq();
-  method a_type first();
-  method Bool hsked();
-  method Bool deq_ready();
-  method Bool enq_valid();
-endinterface
-
-module mkGPCvt (GPCvt#(a_type))
-  provisos( Bits#(a_type, sa));
-
-  Wire#(a_type) data <- mkDWire(unpack(fromInteger(valueOf(0))));
-  PulseWire     deq_evt <- mkPulseWire;
-  PulseWire     enq_evt <- mkPulseWire;
-
-  method Action enq( a_type x);
-    data <= x;
-    enq_evt.send();
-  endmethod
-
-  method Action deq();
-    deq_evt.send();
-  endmethod
-
-  method a_type first();
-    return data;
-  endmethod
-
-  method Bool hsked();
-    return enq_evt && deq_evt;
-  endmethod
-
-  method Bool enq_valid();
-    return enq_evt;
-  endmethod
-
-  method Bool deq_ready();
-    return deq_evt;
-  endmethod
-endmodule
-
-//module mkGPSizedCvt#(Integer x) (GPCvt#(a_type))
-//  provisos( Bits#(a_type, sa));
-//
-//  FIFO#(a_type) fifo <- mkBypassSizedFIFO(x); 
-//  PulseWire     deq_evt <- mkPulseWire;
-//  PulseWire     enq_evt <- mkPulseWire;
-//
-//  method Action enq( a_type x);
-//    fifo.enq(x);
-//    enq_evt.send();
-//  endmethod
-//
-//  method Action deq();
-//    fifo.deq();
-//    deq_evt.send();
-//  endmethod
-//
-//  method a_type first();
-//    return fifo.first();
-//  endmethod
-//
-//  method Bool enq_hsked();
-//    return enq_evt;
-//  endmethod
-//
-//  method Bool deq_hsked();
-//    return deq_evt;
-//  endmethod
-//endmodule
-
-instance ToPut #(GPCvt#(a), a);
-  function Put#(a) toPut (GPCvt#(a) i);
-    return (interface Put;
-              method Action put(a x);
-                i.enq(x);
-              endmethod
-            endinterface);
-  endfunction
-endinstance
-
-instance ToGet #(GPCvt#(a), a);
-  function Get#(a) toGet (GPCvt#(a) i);
-    return (interface Get;
-              method ActionValue#(a) get();
-                let ret = i.first();
-                i.deq;
-                return ret;
-              endmethod
-            endinterface);
-  endfunction
-endinstance
-
 interface LRU#(numeric type len);
   method Action access( Bit#(len) val);
   method Bit#(TLog#(len)) lru(Bit#(len) entry_sel_valid);
@@ -331,6 +236,7 @@ interface FIFOMgr#(numeric type entries, type addr_t);
   method addr_t get_wr();
   method Action inc_rd();
   method Action inc_rd_nb();
+  method Action set_wr(addr_t addr);
   method Action inc_wr();
   method Action inc_wr_nb();
 endinterface
@@ -399,6 +305,11 @@ module mkFIFOMgr (FIFOMgr#(entries, addr_t))
       rd_r <= rd_p1;
       free_evt.send();
     end
+  endmethod
+
+  method Action set_wr(addr_t addr);
+    wr_r <= addr;
+    alloc_evt.send();
   endmethod
 
   method Action inc_wr() if (!full);
@@ -516,7 +427,7 @@ endfunction
 module mkSRegA#(parameter a_type resetval) (Reg#(a_type))
   provisos (Bits#(a_type, sizea));
   Reg#(a_type) i_reg <- mkRegA(resetval);
-  Wire#(a_type) i_wire <- mkWire;
+  Wire#(a_type) i_wire <- mkBypassWire;
   
   rule rl_rd_reg;
     i_wire <= i_reg;

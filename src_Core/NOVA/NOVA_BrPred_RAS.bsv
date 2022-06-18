@@ -59,12 +59,10 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
 
   Que#(NOVA_CFG_RAS_CMT_ENTRIES, RAS_PID_t) cmt_ras   <- mkSizedQue;
 
-  GPCvt #(BPC_SPLBP_REQ_t)                req_agent   <- mkGPCvt;
   FIFOF #(BPC_RAS_RSP_t)                  rsp_agent   <- mkPipelineFIFOF;
-  GPCvt #(BPC_SPLBP_ALLOC_t)              alloc_agent <- mkGPCvt;
-  GPCvt #(BPC_RAS_CMT_t)                  cmt_agent   <- mkGPCvt;
   
   Wire#(RAS_PID_t)                        retire_pid   <- mkWire;
+  RWire#(BPC_RAS_CMT_t)                   cmt_wire     <- mkRWireSBR;
 
   // ----------------
   // States
@@ -106,84 +104,79 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
     retire_pid   <= osq_pid_r.sub(osq_rd);
   endrule
 
-  (* descending_urgency = "rl_handle_alloc, rl_handle_lkup" *)
+  let alloc_put =
+  (interface Put#(BPC_SPLBP_ALLOC_t);
+    method Action put(BPC_SPLBP_ALLOC_t reqv);
+      new_call(reqv.target_pc);
+    endmethod
+  endinterface);
 
-  rule rl_handle_alloc;
-    let           reqv = alloc_agent.first();
-    alloc_agent.deq();
-    new_call(reqv.target_pc);
-  endrule
-
-  rule rl_handle_lkup;
-    let           reqv = req_agent.first();
-    BPC_RAS_RSP_t rspv = unpack(fromInteger(0));
-    req_agent.deq();
-    new_ret();
-    rspv.taken      = !pras_empty;
-    rspv.id         = osq_wr;
-    rspv.target_pc  = pc_top;
-    rsp_agent.enq(rspv);
-  endrule
+  let req_put =
+  (interface Put#(BPC_SPLBP_REQ_t);
+    method Action put(BPC_SPLBP_REQ_t reqv);
+      BPC_RAS_RSP_t rspv = unpack(fromInteger(0));
+      new_ret();
+      rspv.taken      = !pras_empty;
+      rspv.id         = osq_wr;
+      rspv.target_pc  = pc_top;
+      rsp_agent.enq(rspv);
+    endmethod
+  endinterface);
+  
+  let cmt_put =
+  (interface Put#(BPC_RAS_CMT_t);
+    method Action put(BPC_RAS_CMT_t reqv) if (!retire_flush);
+      cmt_wire.wset(reqv);
+    endmethod
+  endinterface);
 
   rule rl_handle_cmt;
-    let           reqv = cmt_agent.first();
     Bit#(NOVA_CFG_RAS_OSQ_ENTRIES) osq_flush_nxt = osq_flush;
     Bool osq_rd_inc = False;
     Bit#(NOVA_CFG_RAS_P_ENTRIES) free_entry = 0;
 
-    if (reqv.flush matches tagged Valid .flush_id)
+    if (cmt_wire.wget matches tagged Valid .reqv)
     begin
-      // mark osq entries as flushed
-      for (Integer i = 0; i < valueOf(NOVA_CFG_RAS_OSQ_ENTRIES); i=i+1)
+      if (reqv.flush matches tagged Valid .flush_id)
       begin
-        RAS_OSQ_ID_t ii = fromInteger(i);
-        if (osq_mgr.is_valid(ii, flush_id))
-          osq_flush_nxt[i] = 1'b1;
+        // mark osq entries as flushed
+        for (Integer i = 0; i < valueOf(NOVA_CFG_RAS_OSQ_ENTRIES); i=i+1)
+        begin
+          RAS_OSQ_ID_t ii = fromInteger(i);
+          if (osq_mgr.is_valid(ii, flush_id))
+            osq_flush_nxt[i] = 1'b1;
+        end
       end
-    end
-    
 
-    if (reqv.commit || reqv.excp)
-    begin
-      osq_flush_nxt[osq_rd] = 1'b0;
-      if (!retire_flush)
+      if (reqv.commit || reqv.excp)
       begin
-        if (reqv.commit)
-        begin
-          cmt_agent.deq();
-        end
-        else if (reqv.excp)
-        begin
-          cmt_agent.deq();
-        end
-      end 
+        osq_flush_nxt[osq_rd] = 1'b0;
+        // freeup osq rd
+        osq_rd_inc = True;
+        if (retire_flush || reqv.excp)
+          free_entry[retire_pid] = 1'b1;
 
-      // freeup osq rd
-      osq_rd_inc = True;
-      if (retire_flush || reqv.excp)
-        free_entry[retire_pid] = 1'b1;
-
-      // push pop retire ras
-      if (reqv.commit && !retire_flush)
-      begin
-        if (retire_call)
+        // push pop retire ras
+        if (reqv.commit && !retire_flush)
         begin
-          if (cmt_ras.full())
+          if (retire_call)
           begin
-            // freeup end of commit ras
-            free_entry[cmt_ras.last()] = 1'b1;
-            cmt_ras.deq_last();
+            if (cmt_ras.full())
+            begin
+              // freeup end of commit ras
+              free_entry[cmt_ras.last()] = 1'b1;
+              cmt_ras.deq_last();
+            end
+            // push ras
+            cmt_ras.enq(retire_pid);
+          end else begin
+            // pop and freeup ras
+            free_entry[cmt_ras.front()] = 1'b1;
+            cmt_ras.deq_front();
           end
-          // push ras
-          cmt_ras.enq(retire_pid);
-        end else begin
-          // pop and freeup ras
-          free_entry[cmt_ras.front()] = 1'b1;
-          cmt_ras.deq_front();
         end
       end
     end else begin
-      cmt_agent.deq();
       if (retire_flush)
       begin
         osq_flush_nxt[osq_rd] = 1'b0;
@@ -205,9 +198,9 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
 
   // ----------------
   // Interfaces
-  interface lkup_server = toGPServer(req_agent, rsp_agent);
-  interface alloc       = toPut(alloc_agent);
-  interface cmt         = toPut(cmt_agent);
+  interface lkup_server = toGPServer(req_put, rsp_agent);
+  interface alloc       = toPut(alloc_put);
+  interface cmt         = toPut(cmt_put);
 endmodule: mkNOVA_BPC_RAS
 
 endpackage

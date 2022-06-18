@@ -43,16 +43,18 @@ module mkNOVA_BPC_BPQ (NOVA_BPC_BPQ_IFC);
   // Instances
   FIFOF #(IFC_BPC_BRF_Pack_t)  ifc_brf_fifo <- mkFIFOF;
   RWire #(IFC_BPC_BRF_Pack_t)  flush        <- mkRWireSBR;
-  GPCvt #(IFC_BPC_BPQ_Pack_t)  deq_val      <- mkGPCvt;
-  GPCvt #(IFC_BPC_BPQ_Pack_t)  enq_val      <- mkGPCvt;
   PulseWire                    set_full     <- mkPulseWire;
+  PulseWire                    deq_evt      <- mkPulseWire;
+  PulseWire                    enq_evt      <- mkPulseWire;
+  PulseWire                    top_not_flush<- mkPulseWire;
+  Wire#(BPQ_PTR_t)             wr_ptr_q     <- mkBypassWire;
 
   // ----------------
   // States
-  Vector#(NOVA_CFG_BPC_BPQ_ENTRIES, Reg#(IFC_BPC_BPQ_Pack_t)) q <- replicateM(mkRegA(unpack(fromInteger(valueOf(0)))));
-  Reg#(BPQ_PTR_t)   rd_ptr <- mkRegA(0);
-  Reg#(BPQ_PTR_t)   wr_ptr <- mkRegA(0);
-  Reg#(Bool)        full   <- mkRegA(False);
+  Vector#(NOVA_CFG_BPC_BPQ_ENTRIES, Reg#(IFC_BPC_BPQ_Pack_t)) q <- replicateM(mkSRegA(unpack(fromInteger(valueOf(0)))));
+  Reg#(BPQ_PTR_t)   rd_ptr <- mkSRegA(0);
+  Reg#(BPQ_PTR_t)   wr_ptr <- mkSRegA(0);
+  Reg#(Bool)        full   <- mkSRegA(False);
   
   Bool notEmpty = rd_ptr != wr_ptr || full;
   IFC_BPC_BPQ_Pack_t top = q[rd_ptr];
@@ -63,10 +65,10 @@ module mkNOVA_BPC_BPQ (NOVA_BPC_BPQ_IFC);
     if (flush.wget() matches tagged Valid .vl &&& vl.bp_id == top.bp_id)
       ifc_brf_fifo.enq(vl);
     else
-      deq_val.enq(top);
+      top_not_flush.send();
   endrule
 
-  rule rl_write_q;
+  rule rl_write_ptr;
     Bit#(NOVA_CFG_BPC_BPQ_ENTRIES) m;
     Bit#(NOVA_CFG_BPC_BPQ_ENTRIES) res = 0;
     Bit#(NOVA_CFG_BPC_BPQ_ENTRIES) rd_mask = (1<<(rd_ptr+1))-1;
@@ -85,7 +87,7 @@ module mkNOVA_BPC_BPQ (NOVA_BPC_BPQ_IFC);
       res = ~rd_mask & wr_mask & m;
     end
 
-    BPQ_PTR_t wr_ptr_w   = 0;
+    BPQ_PTR_t wr_ptr_w   = wr_ptr;
     for (Integer i = valueOf(NOVA_CFG_BPC_BPQ_ENTRIES)-1; i >= 0 ; i=i-1)
       if (res[i] == 1'b1)
         wr_ptr_w = fromInteger(i);
@@ -96,28 +98,20 @@ module mkNOVA_BPC_BPQ (NOVA_BPC_BPQ_IFC);
             wr_ptr_w = rd_ptr;
     end else
         wr_ptr_w = wr_ptr;
+    wr_ptr_q <= wr_ptr_w;
+  endrule
     
-    if (!full)
+  rule rl_write_q;
+    if ((!full && enq_evt) || isValid(flush.wget()))
     begin
-      if (enq_val.hsked())
-        q[wr_ptr_w] <= enq_val.first();
-    end
-
-    if ((!full && enq_val.hsked()) || isValid(flush.wget()))
-    begin
-        wr_ptr <= wr_ptr_w+1;
-        if (wr_ptr_w+1 == rd_ptr)
+        wr_ptr <= wr_ptr_q+1;
+        if (wr_ptr_q+1 == rd_ptr)
           set_full.send();
     end
   endrule
 
-  rule rl_handle_wr;
-    if (!full)
-      enq_val.deq();
-  endrule
-
   rule rl_set_full;
-    if (deq_val.hsked)
+    if (deq_evt)
     begin
       full <= False;
       rd_ptr <= rd_ptr+1;
@@ -127,13 +121,29 @@ module mkNOVA_BPC_BPQ (NOVA_BPC_BPQ_IFC);
 
   // ----------------
   // method
+  let deq_get = 
+  (interface Get#(IFC_BPC_BPQ_Pack_t);
+    method ActionValue#(IFC_BPC_BPQ_Pack_t) get() if (notEmpty && top_not_flush);
+      deq_evt.send();
+      return top;
+    endmethod
+  endinterface);
+
+  let enq_put =
+  (interface Put#(IFC_BPC_BPQ_Pack_t);
+    method Action put(IFC_BPC_BPQ_Pack_t val) if (!full);
+      enq_evt.send();
+      q[wr_ptr_q] <= val;
+    endmethod
+  endinterface);
+
 
   // ----------------
   // Interfaces
   interface ifc_brf_intf = toGet(ifc_brf_fifo);
   interface flush_intf   = toPut(flush);
-  interface enq_intf     = toPut(enq_val);
-  interface ifc_deq_intf = toGet(deq_val);
+  interface enq_intf     = enq_put;
+  interface ifc_deq_intf = deq_get;
 endmodule: mkNOVA_BPC_BPQ
 
 endpackage
