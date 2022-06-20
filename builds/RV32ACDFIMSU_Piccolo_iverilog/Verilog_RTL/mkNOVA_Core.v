@@ -277,10 +277,10 @@ module mkNOVA_Core(CLK,
        mem_master_wvalid;
 
   // ports of submodule bp_cplx
-  wire [69 : 0] bp_cplx$ifc_fbu_intf_put;
+  wire [70 : 0] bp_cplx$ifc_fbu_intf_put;
   wire [39 : 0] bp_cplx$rob_flush_intf_put;
+  wire [37 : 0] bp_cplx$rob_cmt_intf_put;
   wire [30 : 0] bp_cplx$bpc_cfg_intf_put;
-  wire [5 : 0] bp_cplx$rob_cmt_intf_put;
   wire [3 : 0] bp_cplx$itb_flush_intf_put;
   wire bp_cplx$EN_bpc_cfg_intf_put,
        bp_cplx$EN_ifc_bpq_intf_get,
@@ -523,9 +523,9 @@ module mkNOVA_Core(CLK,
 
   // submodule bp_cplx
   assign bp_cplx$bpc_cfg_intf_put = 31'h0 ;
-  assign bp_cplx$ifc_fbu_intf_put = 70'h0 ;
+  assign bp_cplx$ifc_fbu_intf_put = 71'h0 ;
   assign bp_cplx$itb_flush_intf_put = 4'h0 ;
-  assign bp_cplx$rob_cmt_intf_put = 6'h0 ;
+  assign bp_cplx$rob_cmt_intf_put = 38'h0 ;
   assign bp_cplx$rob_flush_intf_put = 40'h0 ;
   assign bp_cplx$EN_ifc_bpq_intf_get = 1'b0 ;
   assign bp_cplx$EN_ifc_brf_intf_get = 1'b0 ;

@@ -64,6 +64,7 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
   FIFOF #(BPC_IFC_ITBF_Pack_t)  itb_flush_fifo <- mkBypassFIFOF;
   RWire #(BPC_IFC_FBU_Pack_t)   fbu_flush      <- mkRWireSBR;
   RWire #(ROB_BPC_FLUSH_Pack_t) rob_flush      <- mkRWireSBR;
+  RWire #(ROB_BPC_CMT_Pack_t)   rob_cmt        <- mkRWireSBR;
 
   FIFOMgr#(NOVA_CFG_BPC_BP_ID_NUM, BP_ID_t)
                                osq_mgr     <- mkFIFOMgr;
@@ -201,14 +202,26 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
     ifc.l2_bpp_pre_lkup.put(bpp_req);
 
     // ras ita loop using l0 info
-    match {.pch1, .pcl1} = split_pc(s0_pc_r);
+    IFetch_HAddr_t             pch_end = s0_pch_r[msb(bpp_rsp.pc_os_end)];
     let rli_req = BPC_SPLBP_REQ_t{
-        pc_h    : pch1,
+        pc_h    : pch_end,
         pc_os   : bpp_rsp.pc_os_end,
         ght     : s0_ght_r
         };
+    let rli_alloc_req = BPC_SPLBP_ALLOC_t{
+        pc_h        : pch_end,
+        pc_os       : bpp_rsp.pc_os_end,
+        ght         : s0_ght_r,
+        target_pc   : bpp_rsp.target_pc.Valid
+        };
     if (bpp_rsp.br_class == BC_RET) 
       ifc.ras_lkup.request.put(rli_req);
+    else if (bpp_rsp.br_class == BC_CALL) 
+    begin
+      // what if call target pc is not yet in BTB? replay later?
+      if (isValid(bpp_rsp.target_pc))
+        ifc.ras_alloc.put(rli_alloc_req);
+    end
     else if (bpp_rsp.br_class == BC_IND) 
       ifc.ita_lkup.request.put(rli_req);
     else if (bpp_rsp.br_class == BC_LOOP) 
@@ -442,6 +455,12 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
     rob_flush.wset(flush);
   endrule
 
+  rule rl_rd_rob_cmd_fifo;
+    let cmt = rob_cmt_fifo.first();
+    rob_cmt_fifo.deq();
+    rob_cmt.wset(cmt);
+  endrule
+
   //(* descending_urgency = "rl_handle_osq rl_handle_stage1" *)
   rule rl_handle_osq;
     Maybe#(BP_ID_t) flush_id = Invalid;
@@ -482,6 +501,64 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
       flush_p1_w <= osq_p1_r.sub(flush_id_v);
       flush_p2_w <= osq_p2_r.sub(flush_id_v);
     end
+  endrule
+
+  rule rl_ras_cmt;
+    Bool make_req = False;
+    let cmt_req = BPC_RAS_CMT_t {
+      excp             :  False,
+      commit           :  False,
+      flush_mispred    :  False,
+      flush            :  Invalid 
+    };
+    if (rob_flush.wget matches tagged Valid .flush)
+      if (flush.misspred_pc)
+      begin
+        make_req = True;
+        cmt_req.flush_mispred = True;
+      end
+    if (rob_cmt.wget matches tagged Valid .cmt)
+    begin
+      make_req = True;
+      cmt_req.commit = !cmt.excp;
+      cmt_req.excp   = cmt.excp;
+    end
+    if (flush_id_w.wget matches tagged Valid .flush_id_v)
+    begin
+      make_req = True;
+      cmt_req.flush = tagged Valid flush_p1_w.ras_id;
+    end
+    if (make_req)
+      ifc.ras_cmt.put(cmt_req);
+  endrule
+
+  rule rl_loop_cmt;
+    Bool make_req = False;
+    let cmt_req = BPC_LOOP_CMT_t {
+      excp             :  False,
+      commit           :  False,
+      flush_mispred    :  False,
+      flush            :  Invalid 
+    };
+    if (rob_flush.wget matches tagged Valid .flush)
+      if (flush.misspred_dir)
+      begin
+        make_req = True;
+        cmt_req.flush_mispred = True;
+      end
+    if (rob_cmt.wget matches tagged Valid .cmt)
+    begin
+      make_req = True;
+      cmt_req.commit = !cmt.excp;
+      cmt_req.excp   = cmt.excp;
+    end
+    if (flush_id_w.wget matches tagged Valid .flush_id_v)
+    begin
+      make_req = True;
+      cmt_req.flush = tagged Valid flush_p1_w.loop_id;
+    end
+    if (make_req)
+      ifc.loop_cmt.put(cmt_req);
   endrule
 
   // ----------------
