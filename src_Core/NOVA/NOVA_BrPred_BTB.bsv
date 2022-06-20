@@ -66,7 +66,7 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
     btb_addr <- replicateM(mkRegFile(0, fromInteger(valueOf(btb_max_set_idx))));
   Vector#(2, LRU#(btb_asso))               lru <- replicateM(mkLRU);
   Vector#(2, Wire#(Bit#(TLog#(btb_asso)))) lruv <- replicateM(mkWire);
-  RWire#(updt_rsp_t) updt_rsp_wire <- mkRWireSBR;
+  Wire#(updt_rsp_t) updt_rsp_wire <- mkWire;
 
   // ----------------
   // States
@@ -225,14 +225,14 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
         end
       end
     end
-    updt_rsp_wire.wset(updt_rspv);
+    updt_rsp_wire <= updt_rspv;
     endmethod
   endinterface);
 
   let updt_rsp_get = 
   (interface Get#(updt_rsp_t);
-    method ActionValue#(updt_rsp_t) get() if (updt_rsp_wire.wget() matches tagged Valid .updt_rspv);
-      return updt_rspv;
+    method ActionValue#(updt_rsp_t) get();
+      return updt_rsp_wire;
     endmethod
   endinterface);
 
@@ -242,20 +242,20 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
   endrule
 if (valueOf(odly) == 0)
 begin
-  RWire#(rsp_t)      rsp_wire <- mkRWireSBR;
+  Wire#(rsp_t)      rsp_wire <- mkWire;
 
   let req_put =
   (interface Put#(req_t);
     method Action put(req_t val);
       let rspd <- fn_handle_lkup(val);
-      rsp_wire.wset(rspd);
+      rsp_wire <= rspd;
     endmethod
   endinterface);
 
   let rsp_get = 
   (interface Get#(rsp_t);
-    method ActionValue#(rsp_t) get() if (rsp_wire.wget() matches tagged Valid .rspd);
-      return rspd;
+    method ActionValue#(rsp_t) get();
+      return rsp_wire;
     endmethod
   endinterface);
 

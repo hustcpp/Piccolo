@@ -41,10 +41,8 @@ typedef struct {
   BP_ID_t               bp_id;
   Vector#(NOVA_CFG_BPC_FETCH_W, Br_Class_t) 
                         br_class;
-  Bool                  miss;
-  IFetch_LAddr_t        miss_pc_os;
-  IFetch_HAddr_t        miss_pc_h;
-  PC_t                  miss_pc_target;
+  Bool                  misspred;
+  PC_t                  pc_target;
 } BPC_IFC_FBU_Pack_t
 deriving (FShow, Bits);
 
@@ -65,7 +63,10 @@ deriving (FShow, Bits);
 
 typedef struct {
   BP_ID_t               bp_id;
-  Bit #(8)              excp_type;
+  Bool                  misspred_pc;
+  Bool                  misspred_dir;
+  PC_t                  pc_target;
+  Bool                  taken;
 } ROB_BPC_FLUSH_Pack_t
 deriving (FShow, Bits);
 
