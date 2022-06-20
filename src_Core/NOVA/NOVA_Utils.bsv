@@ -9,6 +9,24 @@ import LFSR         :: *;
 import ISA_Decls       :: *;
 import NOVA_Decls      :: *;
 
+module mkSRegA#(parameter a_type resetval) (Reg#(a_type))
+  provisos (Bits#(a_type, sizea));
+  Reg#(a_type) i_reg <- mkRegA(resetval);
+  Wire#(a_type) i_wire <- mkBypassWire;
+  
+  rule rl_rd_reg;
+    i_wire <= i_reg;
+  endrule
+
+  method Action _write(a_type x1);
+    i_reg <= x1;
+  endmethod
+
+  method a_type _read();
+    return i_wire;
+  endmethod
+endmodule
+
 interface LRU#(numeric type len);
   method Action access( Bit#(len) val);
   method Bit#(TLog#(len)) lru(Bit#(len) entry_sel_valid);
@@ -246,44 +264,34 @@ module mkFIFOMgr (FIFOMgr#(entries, addr_t))
             Log#(entries, addr_min_width),
             Add#(addr_diff_width, addr_min_width, addr_width)
             );
-  Reg#(addr_t)                   rd_r    <- mkRegA(0);
-  Reg#(addr_t)                   wr_r    <- mkRegA(0);
-  Reg#(Bool)                     full_r  <- mkRegA(False);
+  Reg#(addr_t)                   rd_r    <- mkSRegA(0);
+  Reg#(addr_t)                   wr_r    <- mkSRegA(0);
+  Reg#(Bool)                     full_r  <- mkSRegA(False);
   
-  Wire#(addr_t)                  rd    <- mkWire;
-  Wire#(addr_t)                  wr    <- mkWire;
-  Wire#(Bool)                    full  <- mkWire;
-
   PulseWire                      alloc_evt  <- mkPulseWire;
   PulseWire                      free_evt   <- mkPulseWire;
 
-  addr_t rd_p1  = rd + 1;
-  addr_t wr_p1  = wr + 1;
-  Bool valid = rd != wr || full_r;
+  addr_t rd_p1  = rd_r + 1;
+  addr_t wr_p1  = wr_r + 1;
+  Bool valid = rd_r != wr_r || full_r;
   Bool not_valid = !valid;
-
-  rule rl_reg_read;
-    rd    <= rd_r;
-    wr    <= wr_r;
-    full  <= full_r;
-  endrule
 
   rule rl_handle_full;
     if (free_evt && !alloc_evt)
       full_r <= False;
-    if (!free_evt && alloc_evt && wr_p1 == rd)
+    else if (!free_evt && alloc_evt && wr_p1 == rd_r)
       full_r <= True;
   endrule
 
   method Bool   is_valid(addr_t addr, addr_t limit);
-    Bool wrapped = ((rd > wr) || full) && (limit >= wr);
-    Bool res = ((addr >= limit) && (addr < wr))
+    Bool wrapped = ((rd_r > wr_r) || full_r) && (limit >= wr_r);
+    Bool res = ((addr >= limit) && (addr < wr_r))
             || ( wrapped && (addr >= limit));
     return res;
   endmethod
 
   method Bool   is_full();
-    return full;
+    return full_r;
   endmethod
 
   method Bool   is_empty();
@@ -312,13 +320,13 @@ module mkFIFOMgr (FIFOMgr#(entries, addr_t))
     alloc_evt.send();
   endmethod
 
-  method Action inc_wr() if (!full);
+  method Action inc_wr() if (!full_r);
     wr_r <= wr_p1;
     alloc_evt.send();
   endmethod
 
   method Action inc_wr_nb();
-    if (!full)
+    if (!full_r)
     begin
       wr_r <= wr_p1;
       alloc_evt.send();
@@ -326,11 +334,11 @@ module mkFIFOMgr (FIFOMgr#(entries, addr_t))
   endmethod
 
   method addr_t get_rd();
-    return rd;
+    return rd_r;
   endmethod
 
   method addr_t get_wr();
-    return wr;
+    return wr_r;
   endmethod
 
 endmodule
@@ -422,25 +430,6 @@ action
   let a = map(writeWire, zip(vdst, val));
 endaction
 endfunction
-
-
-module mkSRegA#(parameter a_type resetval) (Reg#(a_type))
-  provisos (Bits#(a_type, sizea));
-  Reg#(a_type) i_reg <- mkRegA(resetval);
-  Wire#(a_type) i_wire <- mkBypassWire;
-  
-  rule rl_rd_reg;
-    i_wire <= i_reg;
-  endrule
-
-  method Action _write(a_type x1);
-    i_reg <= x1;
-  endmethod
-
-  method a_type _read();
-    return i_wire;
-  endmethod
-endmodule
 
 function Tuple2#(IFetch_HAddr_t, IFetch_LAddr_t) split_pc(PC_t addr);
   IFetch_HAddr_t pch = truncate(addr >> valueOf(NOVA_CFG_BPC_FETCH_AW));
