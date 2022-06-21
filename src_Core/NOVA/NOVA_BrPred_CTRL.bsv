@@ -142,6 +142,7 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
   Wire #(BPC_CTRL0_Pack_t)     flush_p0_w   <- mkDWire(unpack(fromInteger(0)));
   Wire #(BPC_CTRL1_Pack_t)     flush_p1_w   <- mkDWire(unpack(fromInteger(0)));
   Wire #(BPC_CTRL2_Pack_t)     flush_p2_w   <- mkDWire(unpack(fromInteger(0)));
+  BPC_BHT_t                    flush_ght = truncate(ght_sv_r >> flush_p2_w.ght_ptr);
   // ----------------
   // States
 
@@ -561,6 +562,51 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
       ifc.loop_cmt.put(cmt_req);
   endrule
 
+  rule rl_bpp_updt;
+    Bool make_req = False;
+    match {.pch, .pcl} = split_pc(flush_p0_w.pc);
+    let req = BPC_BPP_UPDT_REQ_t{
+            pc_h        : pch,
+            pc_os       : pcl,
+            ght         : flush_ght,
+            taken       : False,
+            br_class    : unpack(fromInteger(0))
+        }; 
+  endrule
+
+  rule rl_btb_updt;
+    Bool make_req = False;
+    match {.pch, .pcl} = split_pc(flush_p0_w.pc);
+    //let req = BPC_BTB_UPDT_REQ_t{
+    //        pc_h        : pch,
+    //        pc_os       : pcl,
+    //        ght         : flush_ght,
+    //        taken       : False,
+    //        br_class    : unpack(fromInteger(0))
+    //    }; 
+
+    //if (rob_flush.wget matches tagged Valid .flush)
+    //begin
+    //  req.taken = flush.taken;
+    //  if (flush.misspred_pc)
+    //    make_req = True;
+    //end
+    //else if (fbu_flush.wget matches tagged Valid .flush)
+    //begin
+    //  flush_id = tagged Valid flush.bp_id;
+    //end
+    //else if (s1_btb_mispred || s1_bpp_mispred)
+    //begin
+    //  // select s2 to reset osq  
+    //  flush_id = tagged Valid s2_bid_r;
+    //end
+    //else if (s0_btb_mispred || s0_bpp_mispred)
+    //begin
+    //  // select s1 to reset osq  
+    //  flush_id = tagged Valid s1_bid_r;
+    //end
+
+  endrule
   // ----------------
   // method
 
