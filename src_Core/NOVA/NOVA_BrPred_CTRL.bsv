@@ -80,8 +80,8 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
   Reg#(Bit#(NOVA_CFG_BPC_BP_ID_NUM))
                                osq_flushed_r <- mkSRegA(0);
 
-  Reg#(Vector#(2, IFetch_HAddr_t))
-                               s0_pch_r <- mkSRegA(replicate(fromInteger(valueOf(NOVA_CFG_RESET_PCH))));
+  Reg#(IFetch_HAddr_t)
+                               s0_pch_r <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PCH)));
   Reg#(IFetch_LAddr_t)         s0_pcl_r <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PCL)));
   Reg#(PC_t)                   s0_pc_r  <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PC)));
   Reg#(BPC_BHT_t)              s0_ght_r <- mkSRegA(fromInteger(valueOf(0)));
@@ -91,8 +91,8 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
   PulseWire              s0_ras_ita_rdy <- mkPulseWire;
   PulseWire                    s0_pass_w <- mkPulseWire;
 
-  Reg#(Vector#(2, IFetch_HAddr_t))
-                               s1_pch_r <- mkSRegA(replicate(fromInteger(valueOf(NOVA_CFG_RESET_PCH))));
+  Reg#(IFetch_HAddr_t)
+                               s1_pch_r <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PCH)));
   Reg#(IFetch_LAddr_t)         s1_pcl_r <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PCL)));
   Reg#(BPC_BHT_t)              s1_ght_r <- mkSRegA(fromInteger(valueOf(0)));
   Reg#(BP_ID_t)                s1_bid_r <- mkSRegA(fromInteger(valueOf(0)));
@@ -102,8 +102,8 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
   Wire #(BPC_ITA_RSP_t)        ita_rsp_w  <- mkDWire(unpack(fromInteger(valueOf(0))));
   Wire #(BPC_LOOP_RSP_t)       loop_rsp_w <- mkDWire(unpack(fromInteger(valueOf(0))));
 
-  Reg#(Vector#(2, IFetch_HAddr_t))
-                               s2_pch_r <- mkSRegA(replicate(fromInteger(valueOf(NOVA_CFG_RESET_PCH))));
+  Reg#(IFetch_HAddr_t)
+                               s2_pch_r <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PCH)));
   Reg#(IFetch_LAddr_t)         s2_pcl_r <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PCL)));
   Reg#(BPC_BHT_t)              s2_ght_r <- mkSRegA(fromInteger(valueOf(0)));
   Reg#(BP_ID_t)                s2_bid_r <- mkSRegA(fromInteger(valueOf(0)));
@@ -173,7 +173,7 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
     let btb_rsp = l0_btb_rsp_w;
     let bpp_rsp <- ifc.l0_bpp.response.get();
     l0_bpp_rsp_w <= bpp_rsp;
-    Vector#(2, IFetch_HAddr_t) s0_pch_nxt = s0_pch_r;
+    IFetch_HAddr_t             s0_pch_nxt = s0_pch_r;
     IFetch_LAddr_t             s0_pcl_nxt = s0_pcl_r;
     BPC_BHT_t                  s0_ght_nxt = s0_ght_r;
     PC_t                       s0_pc_nxt  = s0_pc_r;
@@ -203,7 +203,7 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
     ifc.l2_bpp_pre_lkup.put(bpp_req);
 
     // ras ita loop using l0 info
-    IFetch_HAddr_t             pch_end = s0_pch_r[msb(bpp_rsp.pc_os_end)];
+    IFetch_HAddr_t             pch_end = s0_pch_r;
     let rli_req = BPC_SPLBP_REQ_t{
         pc_h    : pch_end,
         pc_os   : bpp_rsp.pc_os_end,
@@ -248,7 +248,7 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
       s0_pass_w.send();
       s1_vld.enq(True);
 
-      match {.pch, .pcl} = split_banked_pc(s0_pc_nxt);
+      match {.pch, .pcl} = split_pc(s0_pc_nxt);
       s0_pch_nxt = pch;        
       s0_pcl_nxt = pcl;
 
@@ -273,7 +273,6 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
       has_taken      : l0_bpp_rsp_w.taken,     
       has_taken_brcc : l0_bpp_rsp_w.brcc_taken,     
       loop_start     : l0_bpp_rsp_w.br_class == BC_LOOP,
-      cross_boundry  : False,     // TBD
       itb_l0_btb_id  : Invalid, // TBD   
       itb_l0_bp_sig  : l0_bpp_rsp_w.bp_sig     
       };

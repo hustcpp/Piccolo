@@ -18,6 +18,7 @@ import NOVA_Decls      :: *;
 // ================================================================
 // Type defines
 
+// IFetch to BrPred Que
 typedef struct {
   IFetch_HAddr_t        pc_h;
   IFetch_LAddr_t        pc_os_start;
@@ -26,7 +27,7 @@ typedef struct {
   Bool                  has_taken;  // if brcc in the fetch, new osq is allocated with new bp_id
   Bool                  has_taken_brcc;
   Bool                  loop_start;
-  Bool                  cross_boundry;
+  //Bool                  cross_boundry;
   Maybe#(L0_BTB_ID_t)   itb_l0_btb_id; // this prediction may not from l0 btb
   ITB_BP_SIG_t          itb_l0_bp_sig;
 } IFC_BPC_BPQ_Pack_t
@@ -37,6 +38,7 @@ typedef struct {
 } IFC_BPC_BRF_Pack_t
 deriving (FShow, Bits);
 
+// BrPred to Fetch Branch Unit
 typedef struct {
   BP_ID_t               bp_id;
   Vector#(NOVA_CFG_BPC_FETCH_W, Br_Class_t) 
@@ -80,41 +82,38 @@ deriving (FShow, Bits);
 
 typedef struct {
   IFetch_HAddr_t        pc_h;
-  Vector#(NOVA_CFG_BPC_FETCH_HW, Br_Class_t) 
+  Vector#(NOVA_CFG_BPC_FETCH_W, Br_Class_t) 
                         br_class;
 } BPC_BTB_INFO_ENTRY_t
 deriving (FShow, Bits);
 
 typedef struct {
-  Vector#(NOVA_CFG_BPC_FETCH_HW, Maybe#(BPQ_PRED_HF_POS_t))
+  Vector#(NOVA_CFG_BPC_FETCH_W, Maybe#(BPQ_PRED_POS_t))
                         target_pos;
 } BPC_BTB_MAP_ENTRY_t
 deriving (FShow, Bits);
 
 typedef struct {
-  Vector#(NOVA_CFG_BPC_PRED_HW, Maybe#(PC_t))
+  Vector#(NOVA_CFG_BPC_PRED_W, Maybe#(PC_t))
                         target_pc;
 } BPC_BTB_ADDR_ENTRY_t
 deriving (FShow, Bits);
 
 typedef struct {
-  Vector#(2, IFetch_HAddr_t) pc_h;
+  IFetch_HAddr_t pc_h;
 } BPC_BTB_REQ_t
 deriving (FShow, Bits);
 
 typedef struct {
-  Vector#(2, Maybe#(btb_id_t))  btb_id;
-  Vector#(2, BPC_BTB_INFO_ENTRY_t)
-                        btb_info;
-  Vector#(2, BPC_BTB_MAP_ENTRY_t)
-                        btb_map;
-  Vector#(2, BPC_BTB_ADDR_ENTRY_t)
-                        btb_addr;
+  Maybe#(btb_id_t)      btb_id;
+  BPC_BTB_INFO_ENTRY_t  btb_info;
+  BPC_BTB_MAP_ENTRY_t   btb_map;
+  BPC_BTB_ADDR_ENTRY_t  btb_addr;
 } BPC_BTB_RSP_t#(type btb_id_t) 
 deriving (FShow, Bits);
-typedef BPC_BTB_RSP_t#(L0_BTB_HF_ID_t) BPC_L0_BTB_RSP_t;
-typedef BPC_BTB_RSP_t#(L1_BTB_HF_ID_t) BPC_L1_BTB_RSP_t;
-typedef BPC_BTB_RSP_t#(L2_BTB_HF_ID_t) BPC_L2_BTB_RSP_t;
+typedef BPC_BTB_RSP_t#(L0_BTB_ID_t) BPC_L0_BTB_RSP_t;
+typedef BPC_BTB_RSP_t#(L1_BTB_ID_t) BPC_L1_BTB_RSP_t;
+typedef BPC_BTB_RSP_t#(L2_BTB_ID_t) BPC_L2_BTB_RSP_t;
 
 typedef struct {
   BPC_BHT_t                 ght;
@@ -127,9 +126,9 @@ typedef struct {
   BPC_BTB_RSP_t#(btb_id_t)  btb_rsp;
 } BPC_BPP_REQ_t#(type btb_id_t)
 deriving (FShow, Bits);
-typedef BPC_BPP_REQ_t#(L0_BTB_HF_ID_t) BPC_L0_BPP_REQ_t;
-typedef BPC_BPP_REQ_t#(L1_BTB_HF_ID_t) BPC_L1_BPP_REQ_t;
-typedef BPC_BPP_REQ_t#(L2_BTB_HF_ID_t) BPC_L2_BPP_REQ_t;
+typedef BPC_BPP_REQ_t#(L0_BTB_ID_t) BPC_L0_BPP_REQ_t;
+typedef BPC_BPP_REQ_t#(L1_BTB_ID_t) BPC_L1_BPP_REQ_t;
+typedef BPC_BPP_REQ_t#(L2_BTB_ID_t) BPC_L2_BPP_REQ_t;
 
 typedef struct {
   Bool                  taken;        // has taken jump or brcc
@@ -155,27 +154,27 @@ typedef struct {
   Maybe#(btb_id_t)        btb_id;
   IFetch_HAddr_t          pc_h;
   BPC_BTB_ADDR_ENTRY_t    e;
-  Vector#(NOVA_CFG_BPC_PRED_HW, IFetch_HF_POS_t)
+  Vector#(NOVA_CFG_BPC_PRED_W, IFetch_LAddr_t)
                           target_pos;
 } BPC_BTB_UPDT_ADDR_REQ_ENTRY_t#(type btb_id_t)
 deriving (FShow, Bits);
 
 typedef struct {
-  Vector#(2, Maybe#(BPC_BTB_UPDT_INFO_REQ_ENTRY_t#(btb_id_t))) d; // update info part
-  Vector#(2, Maybe#(BPC_BTB_UPDT_ADDR_REQ_ENTRY_t#(btb_id_t))) a; // update target part
+  Maybe#(BPC_BTB_UPDT_INFO_REQ_ENTRY_t#(btb_id_t)) d; // update info part
+  Maybe#(BPC_BTB_UPDT_ADDR_REQ_ENTRY_t#(btb_id_t)) a; // update target part
 } BPC_BTB_UPDT_REQ_t#(type btb_id_t)
 deriving (FShow, Bits);
-typedef BPC_BTB_UPDT_REQ_t#(L0_BTB_HF_ID_t) BPC_L0_BTB_UPDT_REQ_t;
-typedef BPC_BTB_UPDT_REQ_t#(L1_BTB_HF_ID_t) BPC_L1_BTB_UPDT_REQ_t;
-typedef BPC_BTB_UPDT_REQ_t#(L2_BTB_HF_ID_t) BPC_L2_BTB_UPDT_REQ_t;
+typedef BPC_BTB_UPDT_REQ_t#(L0_BTB_ID_t) BPC_L0_BTB_UPDT_REQ_t;
+typedef BPC_BTB_UPDT_REQ_t#(L1_BTB_ID_t) BPC_L1_BTB_UPDT_REQ_t;
+typedef BPC_BTB_UPDT_REQ_t#(L2_BTB_ID_t) BPC_L2_BTB_UPDT_REQ_t;
 
 typedef struct {
-  Vector#(2, Maybe#(btb_id_t))     rpl_btb_id; // replaced btb id
+  Maybe#(btb_id_t)     rpl_btb_id; // replaced btb id
 } BPC_BTB_UPDT_RSP_t#(type btb_id_t)
 deriving (FShow, Bits);
-typedef BPC_BTB_UPDT_RSP_t#(L0_BTB_HF_ID_t) BPC_L0_BTB_UPDT_RSP_t;
-typedef BPC_BTB_UPDT_RSP_t#(L1_BTB_HF_ID_t) BPC_L1_BTB_UPDT_RSP_t;
-typedef BPC_BTB_UPDT_RSP_t#(L2_BTB_HF_ID_t) BPC_L2_BTB_UPDT_RSP_t;
+typedef BPC_BTB_UPDT_RSP_t#(L0_BTB_ID_t) BPC_L0_BTB_UPDT_RSP_t;
+typedef BPC_BTB_UPDT_RSP_t#(L1_BTB_ID_t) BPC_L1_BTB_UPDT_RSP_t;
+typedef BPC_BTB_UPDT_RSP_t#(L2_BTB_ID_t) BPC_L2_BTB_UPDT_RSP_t;
 
 typedef struct {
   IFetch_HAddr_t        pc_h;
@@ -251,7 +250,7 @@ endinterface
 
 interface NOVA_BPC_GNRL_BTB_IFC#(numeric type odly, 
                                  numeric type impl,
-                                 numeric type btb_hf_entries, 
+                                 numeric type btb_entries, 
                                  numeric type btb_asso, 
                                  type req_t, 
                                  type rsp_t, 
@@ -264,7 +263,7 @@ endinterface
 
 interface NOVA_BPC_GNRL_BPP_IFC#(numeric type odly, 
                                  numeric type impl,
-                                 numeric type btb_hf_entries, 
+                                 numeric type btb_entries, 
                                  type req_t, 
                                  type rsp_t, 
                                  type updt_req_t, 
@@ -274,13 +273,13 @@ interface NOVA_BPC_GNRL_BPP_IFC#(numeric type odly,
   interface Put#(BPC_BPP_LKUP_REQ_t) pre_lkup_put;
 endinterface
 
-typedef NOVA_BPC_GNRL_BTB_IFC#(0, 0, NOVA_CFG_L0_BTB_HF_ENTRIES, NOVA_CFG_L0_BTB_HF_ENTRIES, BPC_BTB_REQ_t, BPC_L0_BTB_RSP_t, BPC_L0_BTB_UPDT_REQ_t, BPC_L0_BTB_UPDT_RSP_t) NOVA_BPC_L0_BTB_IFC;
-typedef NOVA_BPC_GNRL_BTB_IFC#(1, 0, NOVA_CFG_L1_BTB_HF_ENTRIES, 4,  BPC_BTB_REQ_t, BPC_L1_BTB_RSP_t, BPC_L1_BTB_UPDT_REQ_t, BPC_L1_BTB_UPDT_RSP_t) NOVA_BPC_L1_BTB_IFC;
-typedef NOVA_BPC_GNRL_BTB_IFC#(2, 0, NOVA_CFG_L2_BTB_HF_ENTRIES, 16, BPC_BTB_REQ_t, BPC_L2_BTB_RSP_t, BPC_L2_BTB_UPDT_REQ_t, BPC_L2_BTB_UPDT_RSP_t) NOVA_BPC_L2_BTB_IFC;
+typedef NOVA_BPC_GNRL_BTB_IFC#(0, 0, NOVA_CFG_L0_BTB_ENTRIES, NOVA_CFG_L0_BTB_ENTRIES, BPC_BTB_REQ_t, BPC_L0_BTB_RSP_t, BPC_L0_BTB_UPDT_REQ_t, BPC_L0_BTB_UPDT_RSP_t) NOVA_BPC_L0_BTB_IFC;
+typedef NOVA_BPC_GNRL_BTB_IFC#(1, 0, NOVA_CFG_L1_BTB_ENTRIES, 4,  BPC_BTB_REQ_t, BPC_L1_BTB_RSP_t, BPC_L1_BTB_UPDT_REQ_t, BPC_L1_BTB_UPDT_RSP_t) NOVA_BPC_L1_BTB_IFC;
+typedef NOVA_BPC_GNRL_BTB_IFC#(2, 0, NOVA_CFG_L2_BTB_ENTRIES, 16, BPC_BTB_REQ_t, BPC_L2_BTB_RSP_t, BPC_L2_BTB_UPDT_REQ_t, BPC_L2_BTB_UPDT_RSP_t) NOVA_BPC_L2_BTB_IFC;
 
-typedef NOVA_BPC_GNRL_BPP_IFC#(0, 0, NOVA_CFG_L0_BPP_HF_ENTRIES, BPC_L0_BPP_REQ_t, BPC_L0_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L0_BPP_IFC;
-typedef NOVA_BPC_GNRL_BPP_IFC#(1, 0, NOVA_CFG_L1_BPP_HF_ENTRIES, BPC_L1_BPP_REQ_t, BPC_L1_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L1_BPP_IFC;
-typedef NOVA_BPC_GNRL_BPP_IFC#(2, 0, NOVA_CFG_L2_BPP_HF_ENTRIES, BPC_L2_BPP_REQ_t, BPC_L2_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L2_BPP_IFC;
+typedef NOVA_BPC_GNRL_BPP_IFC#(0, 0, NOVA_CFG_L0_BPP_ENTRIES, BPC_L0_BPP_REQ_t, BPC_L0_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L0_BPP_IFC;
+typedef NOVA_BPC_GNRL_BPP_IFC#(1, 0, NOVA_CFG_L1_BPP_ENTRIES, BPC_L1_BPP_REQ_t, BPC_L1_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L1_BPP_IFC;
+typedef NOVA_BPC_GNRL_BPP_IFC#(2, 0, NOVA_CFG_L2_BPP_ENTRIES, BPC_L2_BPP_REQ_t, BPC_L2_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L2_BPP_IFC;
 
 interface NOVA_BPC_SPL_IFC#(type req_t, type rsp_t, type alloc_t, type cmt_t);
   interface Server#(req_t, rsp_t) lkup_server;

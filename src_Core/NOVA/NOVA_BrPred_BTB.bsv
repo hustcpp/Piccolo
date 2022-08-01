@@ -39,17 +39,17 @@ import NOVA_Decls :: *;
 import NOVA_Utils :: *;
 import NOVA_BrPredCplx_IFC     :: *;
 
-module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, btb_asso, req_t, rsp_t, updt_req_t, updt_rsp_t))
+module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_entries, btb_asso, req_t, rsp_t, updt_req_t, updt_rsp_t))
   provisos(
     Alias#(req_t, BPC_BTB_REQ_t),
     Alias#(rsp_t, BPC_BTB_RSP_t#(btb_id_t)),
     Alias#(updt_req_t, BPC_BTB_UPDT_REQ_t#(btb_id_t)),
     Alias#(updt_rsp_t, BPC_BTB_UPDT_RSP_t#(btb_id_t)),
-    Alias#(btb_id_t, Bit#(btb_id_hw)),
-    Log#(btb_hf_entries,btb_id_hw),
-    Mul#(btb_asso, btb_sets, btb_hf_entries),
+    Alias#(btb_id_t, Bit#(btb_id_w)),
+    Log#(btb_entries,btb_id_w),
+    Mul#(btb_asso, btb_sets, btb_entries),
     Log#(btb_asso, btb_asso_id_w),
-    Add#(btb_asso_id_w, btb_set_idx_w, btb_id_hw),
+    Add#(btb_asso_id_w, btb_set_idx_w, btb_id_w),
     Add#(btb_max_set_idx, 1, btb_sets),
     Max#(1, btb_set_idx_w, btb_set_idx_w1),
     Alias#(btb_set_idx_t, Bit#(btb_set_idx_w)),
@@ -58,14 +58,14 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
 
   // ----------------
   // Instances
-  Vector#(2, RegFile#(btb_set_idx1_t, Vector#(btb_asso, Maybe#(BPC_BTB_INFO_ENTRY_t))))
-    btb_info <- replicateM(mkRegFile(0, fromInteger(valueOf(btb_max_set_idx))));
-  Vector#(2, RegFile#(btb_set_idx1_t, Vector#(btb_asso, BPC_BTB_MAP_ENTRY_t)))
-    btb_map  <- replicateM(mkRegFile(0, fromInteger(valueOf(btb_max_set_idx))));
-  Vector#(2, RegFile#(btb_set_idx1_t, Vector#(btb_asso, BPC_BTB_ADDR_ENTRY_t)))
-    btb_addr <- replicateM(mkRegFile(0, fromInteger(valueOf(btb_max_set_idx))));
-  Vector#(2, LRU#(btb_asso))               lru <- replicateM(mkLRU);
-  Vector#(2, Wire#(Bit#(TLog#(btb_asso)))) lruv <- replicateM(mkWire);
+  RegFile#(btb_set_idx1_t, Vector#(btb_asso, Maybe#(BPC_BTB_INFO_ENTRY_t)))
+    btb_info <- mkRegFile(0, fromInteger(valueOf(btb_max_set_idx)));
+  RegFile#(btb_set_idx1_t, Vector#(btb_asso, BPC_BTB_MAP_ENTRY_t))
+    btb_map  <- mkRegFile(0, fromInteger(valueOf(btb_max_set_idx)));
+  RegFile#(btb_set_idx1_t, Vector#(btb_asso, BPC_BTB_ADDR_ENTRY_t))
+    btb_addr <- mkRegFile(0, fromInteger(valueOf(btb_max_set_idx)));
+  LRU#(btb_asso)               lru  <- mkLRU;
+  Wire#(Bit#(TLog#(btb_asso))) lruv <- mkWire;
   Wire#(updt_rsp_t) updt_rsp_wire <- mkWire;
 
   // ----------------
@@ -76,38 +76,34 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
   function ActionValue#(rsp_t) fn_handle_lkup(req_t val);
   actionvalue
     rsp_t rspd = unpack(fromInteger(valueOf(0)));
-    for (Integer i = 0; i < 2; i=i+1)
-    begin
-      btb_set_idx1_t idx = 'b0;
-      if (valueOf(btb_set_idx_w) != 0)
-        idx = val.pc_h[i][valueOf(btb_set_idx_w)-1:0];
-      Vector#(btb_asso, Maybe#(BPC_BTB_INFO_ENTRY_t)) btb_info_rd = btb_info[i].sub(idx);
-      Vector#(btb_asso, BPC_BTB_MAP_ENTRY_t)  btb_map_rd = btb_map[i].sub(idx);
-      Vector#(btb_asso, BPC_BTB_ADDR_ENTRY_t) btb_addr_rd = btb_addr[i].sub(idx);
+    btb_set_idx1_t idx = 'b0;
+    if (valueOf(btb_set_idx_w) != 0)
+      idx = val.pc_h[valueOf(btb_set_idx_w)-1:0];
+    Vector#(btb_asso, Maybe#(BPC_BTB_INFO_ENTRY_t)) btb_info_rd = btb_info.sub(idx);
+    Vector#(btb_asso, BPC_BTB_MAP_ENTRY_t)  btb_map_rd = btb_map.sub(idx);
+    Vector#(btb_asso, BPC_BTB_ADDR_ENTRY_t) btb_addr_rd = btb_addr.sub(idx);
 
-      for (Integer j = 0; j < valueOf(btb_asso); j=j+1)
-        if (btb_info_rd[j] matches tagged Valid .val2 &&& val2.pc_h == val.pc_h[i])
-        begin
-          btb_asso_id_t asso_id = fromInteger(j);
-          btb_id_t btb_id = 0;
-          if (valueOf(btb_set_idx_w) == 0)
-            btb_id = zeroExtend(asso_id);
-          else begin
-            btb_set_idx_t idx_l = idx[valueOf(btb_set_idx_w)-1:0];
-            btb_id = {idx_l, asso_id};
-          end
-          rspd.btb_info[i] = val2;
-          rspd.btb_addr[i] = btb_addr_rd[j];
-          rspd.btb_map[i]  = btb_map_rd[j];
-          rspd.btb_id[i] = tagged Valid btb_id;
-        end
-    end
-    for (Integer i = 0; i < 2; i=i+1)
-      if (rspd.btb_id[i] matches tagged Valid .btb_id2)
+    for (Integer j = 0; j < valueOf(btb_asso); j=j+1)
+      if (btb_info_rd[j] matches tagged Valid .val2 &&& val2.pc_h == val.pc_h)
       begin
-        btb_asso_id_t asso_id = btb_id2[valueOf(btb_asso_id_w)-1:0];
-        lru[i].access(1 << asso_id);
+        btb_asso_id_t asso_id = fromInteger(j);
+        btb_id_t btb_id = 0;
+        if (valueOf(btb_set_idx_w) == 0)
+          btb_id = zeroExtend(asso_id);
+        else begin
+          btb_set_idx_t idx_l = idx[valueOf(btb_set_idx_w)-1:0];
+          btb_id = {idx_l, asso_id};
+        end
+        rspd.btb_info = val2;
+        rspd.btb_addr = btb_addr_rd[j];
+        rspd.btb_map  = btb_map_rd[j];
+        rspd.btb_id   = tagged Valid btb_id;
       end
+    if (rspd.btb_id matches tagged Valid .btb_id2)
+    begin
+      btb_asso_id_t asso_id = btb_id2[valueOf(btb_asso_id_w)-1:0];
+      lru.access(1 << asso_id);
+    end
     return rspd;
   endactionvalue
   endfunction
@@ -120,7 +116,7 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
     BPC_BTB_ADDR_ENTRY_t nxt_addr = old_addr;
     BPC_BTB_MAP_ENTRY_t  nxt_map  = old_map;
 
-    for (Integer j = 0; j < valueOf(NOVA_CFG_BPC_PRED_HW); j=j+1)
+    for (Integer j = 0; j < valueOf(NOVA_CFG_BPC_PRED_W); j=j+1)
       if (updt.e.target_pc[j] matches tagged Valid .pc2) 
       begin
         let pc_os = updt.target_pos[j];
@@ -136,93 +132,90 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
     method Action put(updt_req_t val);
     updt_rsp_t updt_rspv = unpack(fromInteger(valueOf(0)));
 
-    for (Integer i = 0; i < 2; i=i+1)
+    Maybe#(btb_asso_id_t) inv_btb_id = Invalid;
+    Maybe#(btb_asso_id_t) rpl_btb_id = Invalid;
+    btb_asso_id_t new_btb_id = 'b0;
+    btb_asso_id_t alc_btb_id = 'b0;
+
+    btb_set_idx1_t idx = 0;
+    if (valueOf(btb_set_idx_w) != 0)
+      idx = val.d.Valid.info.pc_h[valueOf(btb_set_idx_w)-1:0];
+    Vector#(btb_asso, Maybe#(BPC_BTB_INFO_ENTRY_t)) btb_info_rd = btb_info.sub(idx);
+
+    for (Integer j = 0; j < valueOf(btb_asso); j=j+1)
+      if (btb_info_rd[j] matches Invalid)
+        inv_btb_id = tagged Valid fromInteger(j);
+
+    if (inv_btb_id matches tagged Valid .val2)
+      new_btb_id = val2;
+    else begin
+      new_btb_id = unpack(lruv);
+      rpl_btb_id = tagged Valid new_btb_id;
+    end
+
+    if (val.d matches tagged Valid .val2)
     begin
-      Maybe#(btb_asso_id_t) inv_btb_id = Invalid;
-      Maybe#(btb_asso_id_t) rpl_btb_id = Invalid;
-      btb_asso_id_t new_btb_id = 'b0;
-      btb_asso_id_t alc_btb_id = 'b0;
-
-      btb_set_idx1_t idx = 0;
-      if (valueOf(btb_set_idx_w) != 0)
-        idx = val.d[i].Valid.info.pc_h[valueOf(btb_set_idx_w)-1:0];
-      Vector#(btb_asso, Maybe#(BPC_BTB_INFO_ENTRY_t)) btb_info_rd = btb_info[i].sub(idx);
-
-      for (Integer j = 0; j < valueOf(btb_asso); j=j+1)
-        if (btb_info_rd[j] matches Invalid)
-          inv_btb_id = tagged Valid fromInteger(j);
-
-      if (inv_btb_id matches tagged Valid .val2)
-        new_btb_id = val2;
-      else begin
-        new_btb_id = unpack(lruv[i]);
-        rpl_btb_id = tagged Valid new_btb_id;
-      end
-
-      if (val.d[i] matches tagged Valid .val2)
+      Bool write_en = False;
+      if (val2.btb_id matches tagged Valid .val3)
       begin
-        Bool write_en = False;
-        if (val2.btb_id matches tagged Valid .val3)
+        btb_asso_id_t asso_id = truncate(val3);
+        let info_todo = btb_info_rd[asso_id];
+        alc_btb_id = asso_id;
+        write_en = info_todo matches tagged Valid .entry &&& entry.pc_h == val2.info.pc_h ? True : False;
+      end else begin
+        alc_btb_id = new_btb_id;
+        if (rpl_btb_id matches tagged Valid .rpl_btb_id_v)
         begin
-          btb_asso_id_t asso_id = truncate(val3);
-          let info_todo = btb_info_rd[asso_id];
-          alc_btb_id = asso_id;
-          write_en = info_todo matches tagged Valid .entry &&& entry.pc_h == val2.info.pc_h ? True : False;
-        end else begin
-          alc_btb_id = new_btb_id;
-          if (rpl_btb_id matches tagged Valid .rpl_btb_id_v)
+          if (valueOf(btb_set_idx_w) == 0)
           begin
-            if (valueOf(btb_set_idx_w) == 0)
-            begin
-              btb_id_t rpl_btb_id2 = zeroExtend(rpl_btb_id_v);
-              updt_rspv.rpl_btb_id[i] = tagged Valid rpl_btb_id2;
-            end else begin
-              btb_set_idx_t idx_l = idx[valueOf(btb_set_idx_w)-1:0];
-              btb_id_t rpl_btb_id2 = {idx_l, rpl_btb_id_v};
-              updt_rspv.rpl_btb_id[i] = tagged Valid rpl_btb_id2;
-            end
+            btb_id_t rpl_btb_id2 = zeroExtend(rpl_btb_id_v);
+            updt_rspv.rpl_btb_id = tagged Valid rpl_btb_id2;
+          end else begin
+            btb_set_idx_t idx_l = idx[valueOf(btb_set_idx_w)-1:0];
+            btb_id_t rpl_btb_id2 = {idx_l, rpl_btb_id_v};
+            updt_rspv.rpl_btb_id = tagged Valid rpl_btb_id2;
           end
-          write_en = True;
         end
-
-        if (write_en)
-        begin
-          btb_info_rd[alc_btb_id] = tagged Valid val2.info;
-          btb_info[i].upd(idx, btb_info_rd);
-        end
+        write_en = True;
       end
 
-      if (val.a[i] matches tagged Valid .val2)
+      if (write_en)
       begin
-        BPC_BTB_MAP_ENTRY_t  map_old   = unpack(fromInteger(valueOf(0)));
-        BPC_BTB_ADDR_ENTRY_t addr_old  = unpack(fromInteger(valueOf(0)));
-        btb_asso_id_t           wr_btb_id = alc_btb_id;
-        Bool                    write_en2 = True;
+        btb_info_rd[alc_btb_id] = tagged Valid val2.info;
+        btb_info.upd(idx, btb_info_rd);
+      end
+    end
 
-        idx = 'b0;
-        if (valueOf(btb_set_idx_w) != 0)
-          idx = val2.pc_h[valueOf(btb_set_idx_w)-1:0];
-        Vector#(btb_asso, BPC_BTB_MAP_ENTRY_t)  btb_map_rd = btb_map[i].sub(idx);
-        Vector#(btb_asso, BPC_BTB_ADDR_ENTRY_t) btb_addr_rd = btb_addr[i].sub(idx);
+    if (val.a matches tagged Valid .val2)
+    begin
+      BPC_BTB_MAP_ENTRY_t  map_old   = unpack(fromInteger(valueOf(0)));
+      BPC_BTB_ADDR_ENTRY_t addr_old  = unpack(fromInteger(valueOf(0)));
+      btb_asso_id_t           wr_btb_id = alc_btb_id;
+      Bool                    write_en2 = True;
 
-        if (val2.btb_id matches tagged Valid .btb_id2)
-        begin
-          btb_asso_id_t asso_id = truncate(btb_id2);
-          addr_old = btb_addr_rd[asso_id];
-          map_old  = btb_map_rd[asso_id];
-          let info_old = btb_info_rd[asso_id];
-          wr_btb_id = asso_id;
-          write_en2 = info_old matches tagged Valid .entry &&& entry.pc_h == val2.pc_h ? True : False;
-        end
+      idx = 'b0;
+      if (valueOf(btb_set_idx_w) != 0)
+        idx = val2.pc_h[valueOf(btb_set_idx_w)-1:0];
+      Vector#(btb_asso, BPC_BTB_MAP_ENTRY_t)  btb_map_rd = btb_map.sub(idx);
+      Vector#(btb_asso, BPC_BTB_ADDR_ENTRY_t) btb_addr_rd = btb_addr.sub(idx);
 
-        if (write_en2)
-        begin
-          match {.nxt_map, .nxt_addr} = updt_nxt_entry(val2, map_old, addr_old);
-          btb_map_rd[wr_btb_id]  = nxt_map;
-          btb_addr_rd[wr_btb_id] = nxt_addr;
-          btb_addr[i].upd(idx, btb_addr_rd);
-          btb_map[i].upd(idx, btb_map_rd);
-        end
+      if (val2.btb_id matches tagged Valid .btb_id2)
+      begin
+        btb_asso_id_t asso_id = truncate(btb_id2);
+        addr_old = btb_addr_rd[asso_id];
+        map_old  = btb_map_rd[asso_id];
+        let info_old = btb_info_rd[asso_id];
+        wr_btb_id = asso_id;
+        write_en2 = info_old matches tagged Valid .entry &&& entry.pc_h == val2.pc_h ? True : False;
+      end
+
+      if (write_en2)
+      begin
+        match {.nxt_map, .nxt_addr} = updt_nxt_entry(val2, map_old, addr_old);
+        btb_map_rd[wr_btb_id]  = nxt_map;
+        btb_addr_rd[wr_btb_id] = nxt_addr;
+        btb_addr.upd(idx, btb_addr_rd);
+        btb_map.upd(idx, btb_map_rd);
       end
     end
     updt_rsp_wire <= updt_rspv;
@@ -237,8 +230,7 @@ module mkNOVA_BPC_GNRL_BTB (NOVA_BPC_GNRL_BTB_IFC#(odly, impl, btb_hf_entries, b
   endinterface);
 
   rule rd_lru;
-    for (Integer i = 0; i < 2; i=i+1)
-      lruv[i] <= lru[i].lru(fromInteger(-1));
+    lruv <= lru.lru(fromInteger(-1));
   endrule
 if (valueOf(odly) == 0)
 begin
