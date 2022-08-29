@@ -404,7 +404,7 @@ module mkTV_Encode (TV_Encode_IFC);
       // MSTATUS.FS and .SD also updated if CSR instr wrote FFLAGS, FRM or FCSR
       Bool mstatus_written = (td.word2 [1] == 1'b1);
       match { .n5, .vb5 } = (mstatus_written
-			     ? encode_reg (fv_csr_regnum (csr_addr_mstatus), td.word5)
+			     ? encode_reg (fv_csr_regnum (csr_addr_mstatus), unpack(truncate(td.word5)))
 			     : tuple2 (0, ?));
 `endif
       match { .nN, .vbN } = encode_byte (te_op_end_group);

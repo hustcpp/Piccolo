@@ -110,8 +110,10 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
     method Action put(BPC_SPLBP_REQ_t reqv);
     BPC_LOOP_RSP_t rspv = unpack(fromInteger(0));
     PC_t           pc   = {reqv.pc_h, reqv.pc_os};
+    // search for cache for loop instr first
     let cache_data = cnt_cache.rd_data(pc);
-
+    
+    // search a full set map which take priority, as all counter inc/dec are maintained in this map
     LOOP_MAP_ID_t map_id = unpack(fromInteger(0));
     Maybe#(LOOP_MAP_ID_t) map_hit_id = Invalid;
     for (Integer i = 0; i < valueOf(NOVA_CFG_LOOP_MAP_ENTRIES); i=i+1)
@@ -248,7 +250,7 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
         if (reqv.commit && !retire_flush)
         begin
           // update map cnt
-          map_cnt_nxt[retire_id] = map_cnt_r[retire_id] - 1;
+          //map_cnt_nxt[retire_id] = map_cnt_r[retire_id] - 1;
           map_osq_nxt[retire_id] = map_osq_r[retire_id] - 1;
         end
       end

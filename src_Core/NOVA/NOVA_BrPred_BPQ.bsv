@@ -41,7 +41,7 @@ import NOVA_BrPredCplx_IFC     :: *;
 module mkNOVA_BPC_BPQ (NOVA_BPC_BPQ_IFC);
   // ----------------
   // Instances
-  FIFOF #(IFC_BPC_BRF_Pack_t)  ifc_brf_fifo <- mkFIFOF;
+  FIFOF #(IFC_BPC_BRF_Pack_t)  brf_fifo     <- mkFIFOF;
   RWire #(IFC_BPC_BRF_Pack_t)  flush        <- mkRWireSBR;
   PulseWire                    set_full     <- mkPulseWire;
   PulseWire                    deq_evt      <- mkPulseWire;
@@ -63,40 +63,38 @@ module mkNOVA_BPC_BPQ (NOVA_BPC_BPQ_IFC);
   // Rules 
   rule rl_read_q if (notEmpty);
     if (flush.wget() matches tagged Valid .vl &&& vl.bp_id == top.bp_id)
-      ifc_brf_fifo.enq(vl);
+      brf_fifo.enq(vl);
     else
       top_not_flush.send();
   endrule
 
   rule rl_write_ptr;
-    Bit#(NOVA_CFG_BPC_BPQ_ENTRIES) m;
+    Bit#(NOVA_CFG_BPC_BPQ_ENTRIES) m = 0;
     Bit#(NOVA_CFG_BPC_BPQ_ENTRIES) res = 0;
+    Bit#(NOVA_CFG_BPC_BPQ_ENTRIES) vld = 0;
     Bit#(NOVA_CFG_BPC_BPQ_ENTRIES) rd_mask = (1<<(rd_ptr+1))-1;
     Bit#(NOVA_CFG_BPC_BPQ_ENTRIES) wr_mask = (1<<(wr_ptr+1))-1;
-    let vl = fromMaybe(?, flush.wget());
-    for (Integer i = 0; i < valueOf(NOVA_CFG_BPC_BPQ_ENTRIES); i=i+1)
-      m[i] = pack(vl.bp_id == q[i].bp_id);
+    if (flush.wget() matches tagged Valid .vl)
+      for (Integer i = 0; i < valueOf(NOVA_CFG_BPC_BPQ_ENTRIES); i=i+1)
+        m[i] = pack(vl.bp_id == q[i].bp_id);
 
     if (wr_ptr <= rd_ptr)
     begin
-      if ((~rd_mask & m) != 0)
-          res = ~rd_mask & m;
-      else
-          res = wr_mask & m;
+      vld = ~rd_mask | wr_mask;
     end else begin
-      res = ~rd_mask & wr_mask & m;
+      vld = ~rd_mask & wr_mask & m;
     end
+    // valid flush hit vector
+    res = vld & m;
 
     BPQ_PTR_t wr_ptr_w   = wr_ptr;
     for (Integer i = valueOf(NOVA_CFG_BPC_BPQ_ENTRIES)-1; i >= 0 ; i=i-1)
       if (res[i] == 1'b1)
+        // write address if there's a flush
         wr_ptr_w = fromInteger(i);
 
-    if (isValid(flush.wget()))
-    begin
-        if (full)
-            wr_ptr_w = rd_ptr;
-    end else
+    if (!isValid(flush.wget()))
+        // if no flush, just use the wr_ptr
         wr_ptr_w = wr_ptr;
     wr_ptr_q <= wr_ptr_w;
   endrule
@@ -140,10 +138,10 @@ module mkNOVA_BPC_BPQ (NOVA_BPC_BPQ_IFC);
 
   // ----------------
   // Interfaces
-  interface ifc_brf_intf = toGet(ifc_brf_fifo);
+  interface brf_intf     = toGet(brf_fifo);
   interface flush_intf   = toPut(flush);
   interface enq_intf     = enq_put;
-  interface ifc_deq_intf = deq_get;
+  interface deq_intf     = deq_get;
 endmodule: mkNOVA_BPC_BPQ
 
 endpackage

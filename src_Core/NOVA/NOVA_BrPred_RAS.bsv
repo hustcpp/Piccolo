@@ -44,9 +44,8 @@ typedef TSub#(NOVA_CFG_RAS_OSQ_ENTRIES, 1) OSQ_RAS_MAX;
 module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
   // ----------------
   // Instances
-  RegFile#(RAS_PID_t, PC_t)          pras_r <- mkRegFile(0, fromInteger(valueOf(P_RAS_MAX)));
+  RegFile#(RAS_PID_t, PC_t)          pras_r      <- mkRegFile(0, fromInteger(valueOf(P_RAS_MAX)));
   RegFile#(RAS_PID_t, RAS_PID_t)     pras_link_r <- mkRegFile(0, fromInteger(valueOf(P_RAS_MAX)));
-  Reg#(Bit#(NOVA_CFG_RAS_P_ENTRIES)) pras_vld_r  <- mkRegA(0);
   Reg#(RAS_PID_t)                    pras_top_r  <- mkRegA(0);
   FreeQueMgr#(NOVA_CFG_RAS_P_ENTRIES, RAS_PID_t)
                                      pras_mgr    <- mkFreeQueMgr;
@@ -74,7 +73,7 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
   RAS_OSQ_ID_t                          osq_wr    = osq_mgr.get_wr;
 
   Bit#(NOVA_CFG_RAS_OSQ_ENTRIES) osq_flush = osq_flush_r;
-  RAS_PID_t              pras_top = pras_top_r;
+  RAS_PID_t pras_top     = pras_top_r;
   Bool      pras_full    = pras_mgr.is_full;
   Bool      pras_empty   = pras_mgr.is_empty;
   PC_t      pc_top       = pras_r.sub(pras_top);
@@ -88,6 +87,7 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
     pras_r.upd(pid, ret_pc);
     osq_call_r[osq_wr]  <= 1'b1;
     osq_pid_r.upd(osq_wr, pid);
+    pras_link_r.upd(pid, pras_top_r);
     osq_mgr.inc_wr();
   endaction
   endfunction

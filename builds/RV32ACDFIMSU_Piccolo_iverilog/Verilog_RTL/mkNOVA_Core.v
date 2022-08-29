@@ -32,6 +32,7 @@
 // mem_master_arqos               O     4 reg
 // mem_master_arregion            O     4 reg
 // mem_master_rready              O     1 reg
+// RDY_trace_data_in_put          O     1 const
 // CLK                            I     1 clock
 // RST_N                          I     1 reset
 // mem_master_awready             I     1
@@ -45,6 +46,8 @@
 // mem_master_rdata               I    64 reg
 // mem_master_rresp               I     2 reg
 // mem_master_rlast               I     1 reg
+// trace_data_in_put              I   299 unused
+// EN_trace_data_in_put           I     1 unused
 //
 // No combinational paths from inputs to outputs
 //
@@ -136,7 +139,11 @@ module mkNOVA_Core(CLK,
 		   mem_master_rresp,
 		   mem_master_rlast,
 
-		   mem_master_rready);
+		   mem_master_rready,
+
+		   trace_data_in_put,
+		   EN_trace_data_in_put,
+		   RDY_trace_data_in_put);
   input  CLK;
   input  RST_N;
 
@@ -251,6 +258,11 @@ module mkNOVA_Core(CLK,
   // value method mem_master_m_rready
   output mem_master_rready;
 
+  // action method trace_data_in_put
+  input  [298 : 0] trace_data_in_put;
+  input  EN_trace_data_in_put;
+  output RDY_trace_data_in_put;
+
   // signals for module outputs
   wire [63 : 0] mem_master_araddr, mem_master_awaddr, mem_master_wdata;
   wire [7 : 0] mem_master_arlen, mem_master_awlen, mem_master_wstrb;
@@ -267,7 +279,8 @@ module mkNOVA_Core(CLK,
 	       mem_master_awprot,
 	       mem_master_awsize;
   wire [1 : 0] mem_master_arburst, mem_master_awburst;
-  wire mem_master_arlock,
+  wire RDY_trace_data_in_put,
+       mem_master_arlock,
        mem_master_arvalid,
        mem_master_awlock,
        mem_master_awvalid,
@@ -277,15 +290,15 @@ module mkNOVA_Core(CLK,
        mem_master_wvalid;
 
   // ports of submodule bp_cplx
-  wire [70 : 0] bp_cplx$ifc_fbu_intf_put;
+  wire [70 : 0] bp_cplx$fbu_intf_put;
   wire [39 : 0] bp_cplx$rob_flush_intf_put;
   wire [37 : 0] bp_cplx$rob_cmt_intf_put;
   wire [30 : 0] bp_cplx$bpc_cfg_intf_put;
   wire [3 : 0] bp_cplx$itb_flush_intf_put;
   wire bp_cplx$EN_bpc_cfg_intf_put,
-       bp_cplx$EN_ifc_bpq_intf_get,
-       bp_cplx$EN_ifc_brf_intf_get,
-       bp_cplx$EN_ifc_fbu_intf_put,
+       bp_cplx$EN_bpq_intf_get,
+       bp_cplx$EN_brf_intf_get,
+       bp_cplx$EN_fbu_intf_put,
        bp_cplx$EN_itb_flush_intf_put,
        bp_cplx$EN_rob_cmt_intf_put,
        bp_cplx$EN_rob_flush_intf_put;
@@ -331,11 +344,13 @@ module mkNOVA_Core(CLK,
        CAN_FIRE_mem_master_m_bvalid,
        CAN_FIRE_mem_master_m_rvalid,
        CAN_FIRE_mem_master_m_wready,
+       CAN_FIRE_trace_data_in_put,
        WILL_FIRE_mem_master_m_arready,
        WILL_FIRE_mem_master_m_awready,
        WILL_FIRE_mem_master_m_bvalid,
        WILL_FIRE_mem_master_m_rvalid,
-       WILL_FIRE_mem_master_m_wready;
+       WILL_FIRE_mem_master_m_wready,
+       WILL_FIRE_trace_data_in_put;
 
   // value method mem_master_m_awvalid
   assign mem_master_awvalid = master_xactor_f_wr_addr$EMPTY_N ;
@@ -441,26 +456,31 @@ module mkNOVA_Core(CLK,
   // value method mem_master_m_rready
   assign mem_master_rready = master_xactor_f_rd_data$FULL_N ;
 
+  // action method trace_data_in_put
+  assign RDY_trace_data_in_put = 1'd1 ;
+  assign CAN_FIRE_trace_data_in_put = 1'd1 ;
+  assign WILL_FIRE_trace_data_in_put = EN_trace_data_in_put ;
+
   // submodule bp_cplx
   mkNOVA_BrPredCplx bp_cplx(.CLK(CLK),
 			    .RST_N(RST_N),
 			    .bpc_cfg_intf_put(bp_cplx$bpc_cfg_intf_put),
-			    .ifc_fbu_intf_put(bp_cplx$ifc_fbu_intf_put),
+			    .fbu_intf_put(bp_cplx$fbu_intf_put),
 			    .itb_flush_intf_put(bp_cplx$itb_flush_intf_put),
 			    .rob_cmt_intf_put(bp_cplx$rob_cmt_intf_put),
 			    .rob_flush_intf_put(bp_cplx$rob_flush_intf_put),
-			    .EN_ifc_bpq_intf_get(bp_cplx$EN_ifc_bpq_intf_get),
-			    .EN_ifc_brf_intf_get(bp_cplx$EN_ifc_brf_intf_get),
-			    .EN_ifc_fbu_intf_put(bp_cplx$EN_ifc_fbu_intf_put),
+			    .EN_bpq_intf_get(bp_cplx$EN_bpq_intf_get),
+			    .EN_brf_intf_get(bp_cplx$EN_brf_intf_get),
+			    .EN_fbu_intf_put(bp_cplx$EN_fbu_intf_put),
 			    .EN_rob_cmt_intf_put(bp_cplx$EN_rob_cmt_intf_put),
 			    .EN_rob_flush_intf_put(bp_cplx$EN_rob_flush_intf_put),
 			    .EN_itb_flush_intf_put(bp_cplx$EN_itb_flush_intf_put),
 			    .EN_bpc_cfg_intf_put(bp_cplx$EN_bpc_cfg_intf_put),
-			    .ifc_bpq_intf_get(),
-			    .RDY_ifc_bpq_intf_get(),
-			    .ifc_brf_intf_get(),
-			    .RDY_ifc_brf_intf_get(),
-			    .RDY_ifc_fbu_intf_put(),
+			    .bpq_intf_get(),
+			    .RDY_bpq_intf_get(),
+			    .brf_intf_get(),
+			    .RDY_brf_intf_get(),
+			    .RDY_fbu_intf_put(),
 			    .RDY_rob_cmt_intf_put(),
 			    .RDY_rob_flush_intf_put(),
 			    .RDY_itb_flush_intf_put(),
@@ -523,13 +543,13 @@ module mkNOVA_Core(CLK,
 
   // submodule bp_cplx
   assign bp_cplx$bpc_cfg_intf_put = 31'h0 ;
-  assign bp_cplx$ifc_fbu_intf_put = 71'h0 ;
+  assign bp_cplx$fbu_intf_put = 71'h0 ;
   assign bp_cplx$itb_flush_intf_put = 4'h0 ;
   assign bp_cplx$rob_cmt_intf_put = 38'h0 ;
   assign bp_cplx$rob_flush_intf_put = 40'h0 ;
-  assign bp_cplx$EN_ifc_bpq_intf_get = 1'b0 ;
-  assign bp_cplx$EN_ifc_brf_intf_get = 1'b0 ;
-  assign bp_cplx$EN_ifc_fbu_intf_put = 1'b0 ;
+  assign bp_cplx$EN_bpq_intf_get = 1'b0 ;
+  assign bp_cplx$EN_brf_intf_get = 1'b0 ;
+  assign bp_cplx$EN_fbu_intf_put = 1'b0 ;
   assign bp_cplx$EN_rob_cmt_intf_put = 1'b0 ;
   assign bp_cplx$EN_rob_flush_intf_put = 1'b0 ;
   assign bp_cplx$EN_itb_flush_intf_put = 1'b0 ;

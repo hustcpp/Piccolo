@@ -101,6 +101,7 @@ deriving (FShow, Bits);
 
 typedef struct {
   IFetch_HAddr_t pc_h;
+  IFetch_LAddr_t pc_l;
 } BPC_BTB_REQ_t
 deriving (FShow, Bits);
 
@@ -122,7 +123,6 @@ typedef struct {
 deriving (FShow, Bits);
 
 typedef struct {
-  IFetch_LAddr_t            pc_os;
   BPC_BTB_RSP_t#(btb_id_t)  btb_rsp;
 } BPC_BPP_REQ_t#(type btb_id_t)
 deriving (FShow, Bits);
@@ -238,13 +238,13 @@ typedef  Bit #(2)             IFC_PHTE_t;  // prediction history table entry
 
 interface NOVA_BPC_BPQ_IFC;
   // branch flush to IFC
-  interface Get #(IFC_BPC_BRF_Pack_t)  ifc_brf_intf;
+  interface Get #(IFC_BPC_BRF_Pack_t)  brf_intf;
   // handle branch flush from ctrl
   interface Put #(IFC_BPC_BRF_Pack_t)  flush_intf;
   // handle enqueue from ctrl
   interface Put #(IFC_BPC_BPQ_Pack_t)  enq_intf;
   // handle dequeue from ifc
-  interface Get #(IFC_BPC_BPQ_Pack_t)  ifc_deq_intf;
+  interface Get #(IFC_BPC_BPQ_Pack_t)  deq_intf;
 
 endinterface
 
@@ -292,7 +292,7 @@ typedef NOVA_BPC_SPL_IFC#(BPC_SPLBP_REQ_t, BPC_ITA_RSP_t  , BPC_SPLBP_ALLOC_t, B
 typedef NOVA_BPC_SPL_IFC#(BPC_SPLBP_REQ_t, BPC_LOOP_RSP_t , BPC_SPLBP_ALLOC_t, BPC_LOOP_CMT_t ) NOVA_BPC_LOOP_IFC;
 
 interface NOVA_BPC_CTRL_IFC;
-  interface Put #(BPC_IFC_FBU_Pack_t)  ifc_fbu_intf;
+  interface Put #(BPC_IFC_FBU_Pack_t)  fbu_intf;
   interface Put #(ROB_BPC_CMT_Pack_t)  rob_cmt_intf;
   interface Put #(ROB_BPC_FLUSH_Pack_t) rob_flush_intf;
   interface Put #(BPC_IFC_ITBF_Pack_t) itb_flush_intf;
@@ -337,13 +337,13 @@ endinterface
 
 interface NOVA_BrPredCplx_IFC;
   // branch prediction queue to IFC 
-  interface Get #(IFC_BPC_BPQ_Pack_t)  ifc_bpq_intf;
+  interface Get #(IFC_BPC_BPQ_Pack_t)  bpq_intf;
 
   // branch flush to IFC
-  interface Get #(IFC_BPC_BRF_Pack_t)  ifc_brf_intf;
+  interface Get #(IFC_BPC_BRF_Pack_t)  brf_intf;
 
   // IFC branch target or decode UPDT
-  interface Put #(BPC_IFC_FBU_Pack_t)  ifc_fbu_intf;
+  interface Put #(BPC_IFC_FBU_Pack_t)  fbu_intf;
   
   // ROB commit interface to free BPC resources
   interface Put #(ROB_BPC_CMT_Pack_t)  rob_cmt_intf;

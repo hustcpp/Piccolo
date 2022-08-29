@@ -58,7 +58,7 @@ deriving (FShow, Bits);
 module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
   // ----------------
   // Instances
-  FIFOF #(BPC_IFC_FBU_Pack_t)   ifc_fbu_fifo   <- mkBypassFIFOF;
+  FIFOF #(BPC_IFC_FBU_Pack_t)   fbu_fifo       <- mkBypassFIFOF;
   FIFOF #(ROB_BPC_CMT_Pack_t)   rob_cmt_fifo   <- mkBypassFIFOF;
   FIFOF #(ROB_BPC_FLUSH_Pack_t) rob_flush_fifo <- mkBypassFIFOF;
   FIFOF #(BPC_IFC_ITBF_Pack_t)  itb_flush_fifo <- mkBypassFIFOF;
@@ -83,13 +83,13 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
   Reg#(IFetch_HAddr_t)
                                s0_pch_r <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PCH)));
   Reg#(IFetch_LAddr_t)         s0_pcl_r <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PCL)));
-  Reg#(PC_t)                   s0_pc_r  <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PC)));
   Reg#(BPC_BHT_t)              s0_ght_r <- mkSRegA(fromInteger(valueOf(0)));
   Reg#(BP_ID_t)                s0_bid_r <- mkSRegA(fromInteger(valueOf(0)));
   Reg#(Bool)        s0_wait_target_pc_r <- mkSRegA(False);
   Wire#(PC_t)           s0_ras_ita_pc_w <- mkWire;
   PulseWire              s0_ras_ita_rdy <- mkPulseWire;
   PulseWire                    s0_pass_w <- mkPulseWire;
+  Reg#(Bool)                   s0_vld   <- mkSRegA(False);
 
   Reg#(IFetch_HAddr_t)
                                s1_pch_r <- mkSRegA(fromInteger(valueOf(NOVA_CFG_RESET_PCH)));
@@ -149,7 +149,7 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
   // ----------------
   // Rules 
   rule rl_req_l0_btb;
-    let btb_req = BPC_BTB_REQ_t{pc_h: s0_pch_r};
+    let btb_req = BPC_BTB_REQ_t{pc_h: s0_pch_r, pc_l: s0_pcl_r};
     let bpp_req = BPC_BPP_LKUP_REQ_t{btb_req: btb_req, ght: s0_ght_r};
     ifc.l0_btb.request.put(btb_req);
     ifc.l0_bpp_pre_lkup.put(bpp_req);
@@ -161,9 +161,8 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
   endrule
 
   rule rl_req_l0_bpp;
-    let btb_req = BPC_BTB_REQ_t{pc_h: s0_pch_r};
+    let btb_req = BPC_BTB_REQ_t{pc_h: s0_pch_r, pc_l: s0_pcl_r};
     let bpp_req = BPC_L0_BPP_REQ_t{
-        pc_os   : s0_pcl_r,
         btb_rsp : l0_btb_rsp_w
         };
     ifc.l0_bpp.request.put(bpp_req);  
@@ -176,14 +175,14 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
     IFetch_HAddr_t             s0_pch_nxt = s0_pch_r;
     IFetch_LAddr_t             s0_pcl_nxt = s0_pcl_r;
     BPC_BHT_t                  s0_ght_nxt = s0_ght_r;
-    PC_t                       s0_pc_nxt  = s0_pc_r;
+    PC_t                       s0_pc_nxt;
     Bool s0_pass = !s0_wait_target_pc_r && !osq_full;
 
     // if path end is taken, check btb for target address
     // if btb does not have the target address, address is increase even the prediction is taken
-    s0_pch_nxt[0] = s0_pch_nxt[0] + 1;
-    s0_pch_nxt[1] = s0_pch_nxt[1] + 1;
-    s0_pc_nxt     = s0_pc_r + 1;
+    IFetch_LAddr_t pcl_zero = 0;
+    s0_pch_nxt = s0_pch_nxt + 1;
+    s0_pc_nxt  = {s0_pch_nxt, pcl_zero};
 
     if (bpp_rsp.taken)
     begin
@@ -194,13 +193,6 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
       s0_ght_nxt = s0_ght_nxt << bpp_rsp.brcc_cnt;
       s0_ght_nxt[0] = pack(bpp_rsp.brcc_taken);
     end
-
-    let btb_req = BPC_BTB_REQ_t{pc_h: s0_pch_nxt};
-    let bpp_req = BPC_BPP_LKUP_REQ_t{btb_req: btb_req, ght: s0_ght_nxt};
-    ifc.l1_btb.request.put(btb_req);
-    ifc.l2_btb.request.put(btb_req);
-    ifc.l1_bpp_pre_lkup.put(bpp_req);
-    ifc.l2_bpp_pre_lkup.put(bpp_req);
 
     // ras ita loop using l0 info
     IFetch_HAddr_t             pch_end = s0_pch_r;
@@ -228,8 +220,8 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
     else if (bpp_rsp.br_class == BC_LOOP) 
       ifc.loop_lkup.request.put(rli_req);
 
-    if (  bpp_rsp.br_class != BC_RET
-       || bpp_rsp.br_class != BC_IND
+    if (  bpp_rsp.br_class == BC_RET
+       || bpp_rsp.br_class == BC_IND
         )
       s0_wait_target_pc_r <= True;
     else if (s0_ras_ita_rdy || isValid(flush_id_w.wget))
@@ -243,7 +235,7 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
       s0_pc_nxt = flush_p0_w.pc;
     end
 
-    if (s0_pass)
+    if (s0_pass && s0_vld)
     begin
       s0_pass_w.send();
       s1_vld.enq(True);
@@ -256,17 +248,23 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
       s0_ght_r      <= s0_ght_nxt;
       s0_pcl_r      <= s0_pcl_nxt;
       s0_pch_r      <= s0_pch_nxt;
-      s0_pc_r       <= s0_pc_nxt;
       s0_bid_r      <= osq_wr_ptr;
       l0_btb_rsp_r  <= l0_btb_rsp_w;
       l0_bpp_rsp_r  <= bpp_rsp;
     end
+
+    let btb_req = BPC_BTB_REQ_t{pc_h: s0_pch_nxt, pc_l: s0_pcl_nxt};
+    let bpp_req = BPC_BPP_LKUP_REQ_t{btb_req: btb_req, ght: s0_ght_nxt};
+    ifc.l1_btb.request.put(btb_req);
+    ifc.l2_btb.request.put(btb_req);
+    ifc.l1_bpp_pre_lkup.put(bpp_req);
+    ifc.l2_bpp_pre_lkup.put(bpp_req);
   endrule
   
   rule rl_l0_osq_upd if (s0_pass_w);
-    match {.pch1, .pcl1} = split_pc(s0_pc_r);
+    s0_vld <= True;
     let bpq_req = IFC_BPC_BPQ_Pack_t {
-      pc_h           : pch1, 
+      pc_h           : s0_pch_r, 
       pc_os_start    : s0_pcl_r,     
       pc_os_end      : l0_bpp_rsp_w.pc_os_end, 
       bp_id          : osq_wr_ptr,
@@ -279,7 +277,7 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
     ifc.bpq_enq_intf.put(bpq_req);
 
     let osq_new = BPC_CTRL0_Pack_t{
-      pc        : s0_pc_r,
+      pc        : {s0_pch_r, s0_pcl_r},
       br_class  : l0_bpp_rsp_w.br_class
       };
     osq_p0_r.upd(osq_wr_ptr, osq_new);
@@ -291,9 +289,7 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
     l1_btb_rsp_w <= btb1_rsp;
 
     // l1 bpp req is using l1 btb rsp, one cycle before bpp rsp
-    let btb_req = BPC_BTB_REQ_t{pc_h: s0_pch_r};
     let bpp_req = BPC_L1_BPP_REQ_t{
-        pc_os   : s0_pcl_r,
         btb_rsp : btb1_rsp
         };
     ifc.l1_bpp.request.put(bpp_req);
@@ -301,15 +297,17 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
 
   rule rl_handle_stage1;
     let bpp1_rsp <- ifc.l1_bpp.response.get();
-    let loop_rsp <- ifc.loop_lkup.response.get();
-    let ras_rsp  <- ifc.ras_lkup.response.get();
-    let ita_rsp  <- ifc.ita_lkup.response.get();
+    BPC_LOOP_RSP_t loop_rsp = unpack(fromInteger(0));
+    BPC_RAS_RSP_t  ras_rsp  = unpack(fromInteger(0));
+    BPC_ITA_RSP_t  ita_rsp  = unpack(fromInteger(0));
 
-    loop_rsp_w <= loop_rsp;
-    ras_rsp_w  <= ras_rsp;
-    ita_rsp_w  <= ita_rsp;
-    l1_bpp_rsp_r  <= bpp1_rsp;
-
+    if (bpp1_rsp.br_class == BC_RET)
+        ras_rsp  <- ifc.ras_lkup.response.get();
+    if (bpp1_rsp.br_class == BC_IND) 
+        ita_rsp  <- ifc.ita_lkup.response.get();
+    if (bpp1_rsp.br_class == BC_LOOP) 
+        loop_rsp <- ifc.loop_lkup.response.get();
+        
     Bool s1_pass = True;
 
     Bool l0_bpp_mispred = bpp1_rsp.taken      != l0_bpp_rsp_r.taken      
@@ -358,6 +356,11 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
       s2_vld.enq(True);
       s1_pass_w.send();
     end
+
+    loop_rsp_w <= loop_rsp;
+    ras_rsp_w  <= ras_rsp;
+    ita_rsp_w  <= ita_rsp;
+    l1_bpp_rsp_r  <= bpp1_rsp;
   endrule
 
   rule rl_l1_osq_upd if (s1_pass_w);
@@ -373,9 +376,8 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
     l2_btb_rsp_r <= btb2_rsp;
 
     // l2 bpp req is using l2 btb rsp, one cycle before bpp rsp
-    let btb_req = BPC_BTB_REQ_t{pc_h: s1_pch_r};
+    let btb_req = BPC_BTB_REQ_t{pc_h: s1_pch_r, pc_l: s1_pcl_r};
     let bpp_req = BPC_L2_BPP_REQ_t{
-        pc_os   : s1_pcl_r,
         btb_rsp : btb2_rsp
         };
     ifc.l2_bpp.request.put(bpp_req);
@@ -436,8 +438,8 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
   endrule
   
   rule rl_rd_fbu_flush_fifo;
-    let flush = ifc_fbu_fifo.first();
-    ifc_fbu_fifo.deq();
+    let flush = fbu_fifo.first();
+    fbu_fifo.deq();
     fbu_flush.wset(flush);
     // 
   endrule
@@ -611,7 +613,7 @@ module mkNOVA_BPC_CTRL #(NOVA_BPC_CTRL_Int_IFC ifc) (NOVA_BPC_CTRL_IFC);
 
   // ----------------
   // Interfaces
-  interface ifc_fbu_intf   = toPut(ifc_fbu_fifo);
+  interface fbu_intf       = toPut(fbu_fifo);
   interface rob_cmt_intf   = toPut(rob_cmt_fifo);
   interface rob_flush_intf = toPut(rob_flush_fifo);
   interface itb_flush_intf = toPut(itb_flush_fifo);

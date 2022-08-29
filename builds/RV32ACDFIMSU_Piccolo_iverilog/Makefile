@@ -11,7 +11,7 @@ ARCH ?= RV32ACDFIMSU
 # RISC-V config macros passed into Bluespec 'bsc' compiler
 
 BSC_COMPILATION_FLAGS += \
-	-D RV32 \
+	-D RV32 -D INCLUDE_TANDEM_VERIF \
 	-D ISA_PRIV_M  -D ISA_PRIV_U  -D ISA_PRIV_S  \
 	-D SV32  \
 	-D ISA_I  -D ISA_M  -D ISA_A  -D ISA_C \

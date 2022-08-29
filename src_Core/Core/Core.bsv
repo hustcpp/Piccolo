@@ -306,7 +306,11 @@ module mkCore (Core_IFC #(N_External_Interrupt_Sources));
    // BEGIN SECTION: no GDB, TV
 
    // Connect CPU's TV out directly to TV encoder
-   mkConnection (cpu.trace_data_out, tv_encode.trace_data_in);
+   rule rl_connect_trace;
+     let trace_data <- cpu.trace_data_out.get();
+     tv_encode.trace_data_in.put(trace_data);
+     nova_core.trace_data_in.put(trace_data);
+   endrule
    // END SECTION: no GDB, TV
 `endif
 `endif

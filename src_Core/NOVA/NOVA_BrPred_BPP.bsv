@@ -39,6 +39,13 @@ import NOVA_Decls :: *;
 import NOVA_Utils :: *;
 import NOVA_BrPredCplx_IFC     :: *;
 
+typedef struct {
+  Vector#(NOVA_CFG_BPC_FETCH_W,IFC_PHTE_t) pht;
+  bpp_sig_t sig;
+  IFetch_LAddr_t pcl;
+} BPP_STAGE_DATA_t#(type bpp_sig_t)
+deriving (FShow, Bits);
+
 module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_entries, req_t, rsp_t, updt_req_t, updt_rsp_t))
   provisos(
     Alias#(req_t, BPC_BPP_REQ_t#(btb_id_t)),
@@ -58,6 +65,7 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_entries, req_
   Wire#(updt_rsp_t)      updt_rsp_wire <- mkWire;
   Wire#(Vector#(NOVA_CFG_BPC_FETCH_W,IFC_PHTE_t)) pht_wire <- mkWire;
   Wire#(bpp_sig_t)                                idx_wire <- mkWire;
+  Wire#(IFetch_LAddr_t)                           pcl_wire <- mkWire;
 
   // ----------------
   // States
@@ -92,7 +100,7 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_entries, req_
     return target_pc;
   endfunction
 
-  function rsp_t fn_handle_lkup(req_t val, Vector#(NOVA_CFG_BPC_FETCH_W,IFC_PHTE_t) phts);
+  function rsp_t fn_handle_lkup(req_t val, Vector#(NOVA_CFG_BPC_FETCH_W,IFC_PHTE_t) phts, IFetch_LAddr_t pcl);
     rsp_t rspv = unpack(fromInteger(valueOf(0)));
     Bit#(NOVA_CFG_BPC_FETCH_W)  res_taken     = 'b0;
     Bit#(NOVA_CFG_BPC_FETCH_W)  res_is_brcc   = 'b0;
@@ -149,7 +157,7 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_entries, req_
     Bit#(NOVA_CFG_BPC_FETCH_W) takens  = res_taken;
     Bit#(NOVA_CFG_BPC_FETCH_W) brccs   = res_is_brcc;
 
-    IFetch_LAddr_t start = truncate(val.pc_os);
+    IFetch_LAddr_t start = truncate(pcl);
     Maybe#(IFetch_LAddr_t) end_pos   = Invalid;
     
     rspv.bp_sig = 0;
@@ -185,7 +193,7 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_entries, req_
       updt_rsp_t rspv = unpack('b0);
       let idx = fn_get_idx(val.pc_h, val.ght);
       Vector#(NOVA_CFG_BPC_FETCH_W,IFC_PHTE_t) phts = pht.sub(idx);
-      phts[val.pc_os] = updt(phts[val.pc_os], val.taken);
+      phts[pcl_wire] = updt(phts[pcl_wire], val.taken);
       pht.upd(idx, phts);
       updt_rsp_wire <= rspv;
     endmethod
@@ -214,13 +222,14 @@ begin
     method Action put(BPC_BPP_LKUP_REQ_t val);
       pht_wire <= fn_rd_pht(val);
       idx_wire <= fn_get_idx(val.btb_req.pc_h, val.ght);
+      pcl_wire <= val.btb_req.pc_l;
     endmethod
   endinterface);
 
   let req_put =
   (interface Put#(req_t);
     method Action put(req_t val);
-      let rspv = fn_handle_lkup(val, pht_wire);
+      let rspv = fn_handle_lkup(val, pht_wire, pcl_wire);
       rspv.bp_sig = idx_wire;
       rsp_wire <= rspv;
     endmethod
@@ -239,7 +248,7 @@ begin
   interface pre_lkup_put = toPut(prereq_put);
   interface lkup_server  = toGPServer(req_put, rsp_get);
 end else begin
-  Vector#(odly, FIFOF#(Tuple2#(Vector#(NOVA_CFG_BPC_FETCH_W,IFC_PHTE_t), bpp_sig_t)))
+  Vector#(odly, FIFOF#(BPP_STAGE_DATA_t#(bpp_sig_t)))
                 pht_rd_stages      <- replicateM(mkPipelineFIFOF); 
 
   FIFOF#(rsp_t) rsp_fifo      <- mkPipelineFIFOF;
@@ -249,14 +258,18 @@ end else begin
     method Action put(BPC_BPP_LKUP_REQ_t val);
       let pht_rd = fn_rd_pht(val);
       let idx = fn_get_idx(val.btb_req.pc_h, val.ght);
-      pht_rd_stages[0].enq(tuple2(pht_rd, idx));
+      BPP_STAGE_DATA_t#(bpp_sig_t) din;
+      din.pht = pht_rd;
+      din.sig = idx;
+      din.pcl = val.btb_req.pc_l;
+      pht_rd_stages[0].enq(din);
     endmethod
   endinterface);
 
   let req_put =
   (interface Put#(req_t);
     method Action put(req_t val);
-      let rspv = fn_handle_lkup(val, pht_wire);
+      let rspv = fn_handle_lkup(val, pht_wire, pcl_wire);
       rspv.bp_sig = idx_wire;
       rsp_fifo.enq(rspv);
     endmethod
@@ -276,8 +289,9 @@ end else begin
   rule rl_pht_rd;
     let a = pht_rd_stages[valueOf(odly)-1].first();
     pht_rd_stages[valueOf(odly)-1].deq();
-    pht_wire <= tpl_1(a);
-    idx_wire <= tpl_2(a);
+    pht_wire <= a.pht;
+    idx_wire <= a.sig;
+    pcl_wire <= a.pcl;
   endrule
 
   // ----------------

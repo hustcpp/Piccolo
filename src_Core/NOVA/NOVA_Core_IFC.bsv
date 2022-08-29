@@ -32,7 +32,9 @@ interface NOVA_Core_IFC;
 
    // Mem to Fabric master interface
    interface AXI4_Master_IFC #(Wd_Id, Wd_Addr, Wd_Data, Wd_User)  mem_master;
-
+   
+   // Trace used for compare with golden model
+   interface Put #(Trace_Data)  trace_data_in;
 endinterface
 
 // ================================================================

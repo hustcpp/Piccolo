@@ -64,6 +64,8 @@
 // cpu_dmem_master_arqos          O     4 reg
 // cpu_dmem_master_arregion       O     4 reg
 // cpu_dmem_master_rready         O     1 reg
+// tv_verifier_info_get_get       O   608 reg
+// RDY_tv_verifier_info_get_get   O     1 reg
 // CLK                            I     1 clock
 // RST_N                          I     1 reset
 // set_verbosity_verbosity        I     4 reg
@@ -111,6 +113,7 @@
 // EN_set_verbosity               I     1
 // EN_cpu_reset_server_request_put  I     1
 // EN_cpu_reset_server_response_get  I     1
+// EN_tv_verifier_info_get_get    I     1
 //
 // No combinational paths from inputs to outputs
 //
@@ -321,7 +324,11 @@ module mkCore(CLK,
 
 	      core_external_interrupt_sources_15_m_interrupt_req_set_not_clear,
 
-	      nmi_req_set_not_clear);
+	      nmi_req_set_not_clear,
+
+	      EN_tv_verifier_info_get_get,
+	      tv_verifier_info_get_get,
+	      RDY_tv_verifier_info_get_get);
   input  CLK;
   input  RST_N;
 
@@ -614,7 +621,13 @@ module mkCore(CLK,
   // action method nmi_req
   input  nmi_req_set_not_clear;
 
+  // actionvalue method tv_verifier_info_get_get
+  input  EN_tv_verifier_info_get_get;
+  output [607 : 0] tv_verifier_info_get_get;
+  output RDY_tv_verifier_info_get_get;
+
   // signals for module outputs
+  wire [607 : 0] tv_verifier_info_get_get;
   wire [63 : 0] cpu_dmem_master_araddr,
 		cpu_dmem_master_awaddr,
 		cpu_dmem_master_wdata,
@@ -658,6 +671,7 @@ module mkCore(CLK,
   wire RDY_cpu_reset_server_request_put,
        RDY_cpu_reset_server_response_get,
        RDY_set_verbosity,
+       RDY_tv_verifier_info_get_get,
        cpu_dmem_master_arlock,
        cpu_dmem_master_arvalid,
        cpu_dmem_master_awlock,
@@ -677,6 +691,7 @@ module mkCore(CLK,
        cpu_reset_server_response_get;
 
   // ports of submodule cpu
+  wire [298 : 0] cpu$trace_data_out_get;
   wire [63 : 0] cpu$dmem_master_araddr,
 		cpu$dmem_master_awaddr,
 		cpu$dmem_master_rdata,
@@ -732,8 +747,10 @@ module mkCore(CLK,
   wire cpu$EN_hart0_server_reset_request_put,
        cpu$EN_hart0_server_reset_response_get,
        cpu$EN_set_verbosity,
+       cpu$EN_trace_data_out_get,
        cpu$RDY_hart0_server_reset_request_put,
        cpu$RDY_hart0_server_reset_response_get,
+       cpu$RDY_trace_data_out_get,
        cpu$dmem_master_arlock,
        cpu$dmem_master_arready,
        cpu$dmem_master_arvalid,
@@ -1072,6 +1089,7 @@ module mkCore(CLK,
        near_mem_io$get_timer_interrupt_req_get;
 
   // ports of submodule nova_core
+  wire [298 : 0] nova_core$trace_data_in_put;
   wire [63 : 0] nova_core$mem_master_araddr,
 		nova_core$mem_master_awaddr,
 		nova_core$mem_master_rdata,
@@ -1097,7 +1115,8 @@ module mkCore(CLK,
 	       nova_core$mem_master_awburst,
 	       nova_core$mem_master_bresp,
 	       nova_core$mem_master_rresp;
-  wire nova_core$mem_master_arlock,
+  wire nova_core$EN_trace_data_in_put,
+       nova_core$mem_master_arlock,
        nova_core$mem_master_arready,
        nova_core$mem_master_arvalid,
        nova_core$mem_master_awlock,
@@ -1190,8 +1209,18 @@ module mkCore(CLK,
 		soc_map$m_plic_addr_base,
 		soc_map$m_plic_addr_lim;
 
+  // ports of submodule tv_encode
+  wire [607 : 0] tv_encode$tv_vb_out_get;
+  wire [298 : 0] tv_encode$trace_data_in_put;
+  wire tv_encode$EN_reset,
+       tv_encode$EN_trace_data_in_put,
+       tv_encode$EN_tv_vb_out_get,
+       tv_encode$RDY_trace_data_in_put,
+       tv_encode$RDY_tv_vb_out_get;
+
   // rule scheduling signals
-  wire CAN_FIRE_RL_rl_cpu_hart0_reset_complete,
+  wire CAN_FIRE_RL_rl_connect_trace,
+       CAN_FIRE_RL_rl_cpu_hart0_reset_complete,
        CAN_FIRE_RL_rl_cpu_hart0_reset_from_soc_start,
        CAN_FIRE_RL_rl_rd_addr_channel,
        CAN_FIRE_RL_rl_rd_addr_channel_1,
@@ -1251,6 +1280,8 @@ module mkCore(CLK,
        CAN_FIRE_cpu_reset_server_response_get,
        CAN_FIRE_nmi_req,
        CAN_FIRE_set_verbosity,
+       CAN_FIRE_tv_verifier_info_get_get,
+       WILL_FIRE_RL_rl_connect_trace,
        WILL_FIRE_RL_rl_cpu_hart0_reset_complete,
        WILL_FIRE_RL_rl_cpu_hart0_reset_from_soc_start,
        WILL_FIRE_RL_rl_rd_addr_channel,
@@ -1310,14 +1341,15 @@ module mkCore(CLK,
        WILL_FIRE_cpu_reset_server_request_put,
        WILL_FIRE_cpu_reset_server_response_get,
        WILL_FIRE_nmi_req,
-       WILL_FIRE_set_verbosity;
+       WILL_FIRE_set_verbosity,
+       WILL_FIRE_tv_verifier_info_get_get;
 
   // declarations used by system tasks
   // synopsys translate_off
-  reg [31 : 0] v__h4933;
-  reg [31 : 0] v__h5149;
-  reg [31 : 0] v__h4927;
-  reg [31 : 0] v__h5143;
+  reg [31 : 0] v__h4987;
+  reg [31 : 0] v__h5203;
+  reg [31 : 0] v__h4981;
+  reg [31 : 0] v__h5197;
   // synopsys translate_on
 
   // action method set_verbosity
@@ -1614,6 +1646,12 @@ module mkCore(CLK,
   assign CAN_FIRE_nmi_req = 1'd1 ;
   assign WILL_FIRE_nmi_req = 1'd1 ;
 
+  // actionvalue method tv_verifier_info_get_get
+  assign tv_verifier_info_get_get = tv_encode$tv_vb_out_get ;
+  assign RDY_tv_verifier_info_get_get = tv_encode$RDY_tv_vb_out_get ;
+  assign CAN_FIRE_tv_verifier_info_get_get = tv_encode$RDY_tv_vb_out_get ;
+  assign WILL_FIRE_tv_verifier_info_get_get = EN_tv_verifier_info_get_get ;
+
   // submodule cpu
   mkCPU cpu(.CLK(CLK),
 	    .RST_N(RST_N),
@@ -1650,6 +1688,7 @@ module mkCore(CLK,
 	    .EN_hart0_server_reset_request_put(cpu$EN_hart0_server_reset_request_put),
 	    .EN_hart0_server_reset_response_get(cpu$EN_hart0_server_reset_response_get),
 	    .EN_set_verbosity(cpu$EN_set_verbosity),
+	    .EN_trace_data_out_get(cpu$EN_trace_data_out_get),
 	    .RDY_hart0_server_reset_request_put(cpu$RDY_hart0_server_reset_request_put),
 	    .hart0_server_reset_response_get(cpu$hart0_server_reset_response_get),
 	    .RDY_hart0_server_reset_response_get(cpu$RDY_hart0_server_reset_response_get),
@@ -1709,7 +1748,9 @@ module mkCore(CLK,
 	    .dmem_master_arqos(cpu$dmem_master_arqos),
 	    .dmem_master_arregion(cpu$dmem_master_arregion),
 	    .dmem_master_rready(cpu$dmem_master_rready),
-	    .RDY_set_verbosity());
+	    .RDY_set_verbosity(),
+	    .trace_data_out_get(cpu$trace_data_out_get),
+	    .RDY_trace_data_out_get(cpu$RDY_trace_data_out_get));
 
   // submodule f_reset_reqs
   FIFO2 #(.width(32'd1), .guarded(1'd1)) f_reset_reqs(.RST(RST_N),
@@ -2047,6 +2088,8 @@ module mkCore(CLK,
 			.mem_master_rresp(nova_core$mem_master_rresp),
 			.mem_master_rvalid(nova_core$mem_master_rvalid),
 			.mem_master_wready(nova_core$mem_master_wready),
+			.trace_data_in_put(nova_core$trace_data_in_put),
+			.EN_trace_data_in_put(nova_core$EN_trace_data_in_put),
 			.mem_master_awvalid(nova_core$mem_master_awvalid),
 			.mem_master_awid(nova_core$mem_master_awid),
 			.mem_master_awaddr(nova_core$mem_master_awaddr),
@@ -2074,7 +2117,8 @@ module mkCore(CLK,
 			.mem_master_arprot(nova_core$mem_master_arprot),
 			.mem_master_arqos(nova_core$mem_master_arqos),
 			.mem_master_arregion(nova_core$mem_master_arregion),
-			.mem_master_rready(nova_core$mem_master_rready));
+			.mem_master_rready(nova_core$mem_master_rready),
+			.RDY_trace_data_in_put());
 
   // submodule plic
   mkPLIC_16_2_7 plic(.CLK(CLK),
@@ -2180,6 +2224,23 @@ module mkCore(CLK,
 		    .m_pc_reset_value(),
 		    .m_mtvec_reset_value(),
 		    .m_nmivec_reset_value());
+
+  // submodule tv_encode
+  mkTV_Encode tv_encode(.CLK(CLK),
+			.RST_N(RST_N),
+			.trace_data_in_put(tv_encode$trace_data_in_put),
+			.EN_reset(tv_encode$EN_reset),
+			.EN_trace_data_in_put(tv_encode$EN_trace_data_in_put),
+			.EN_tv_vb_out_get(tv_encode$EN_tv_vb_out_get),
+			.RDY_reset(),
+			.RDY_trace_data_in_put(tv_encode$RDY_trace_data_in_put),
+			.tv_vb_out_get(tv_encode$tv_vb_out_get),
+			.RDY_tv_vb_out_get(tv_encode$RDY_tv_vb_out_get));
+
+  // rule RL_rl_connect_trace
+  assign CAN_FIRE_RL_rl_connect_trace =
+	     tv_encode$RDY_trace_data_in_put && cpu$RDY_trace_data_out_get ;
+  assign WILL_FIRE_RL_rl_connect_trace = CAN_FIRE_RL_rl_connect_trace ;
 
   // rule RL_rl_wr_addr_channel
   assign CAN_FIRE_RL_rl_wr_addr_channel = 1'd1 ;
@@ -2354,6 +2415,7 @@ module mkCore(CLK,
   assign cpu$EN_hart0_server_reset_response_get =
 	     CAN_FIRE_RL_rl_cpu_hart0_reset_complete ;
   assign cpu$EN_set_verbosity = EN_set_verbosity ;
+  assign cpu$EN_trace_data_out_get = CAN_FIRE_RL_rl_connect_trace ;
 
   // submodule f_reset_reqs
   assign f_reset_reqs$D_IN = cpu_reset_server_request_put ;
@@ -2564,6 +2626,8 @@ module mkCore(CLK,
   assign nova_core$mem_master_rresp = fabric_2x3$v_from_masters_2_rresp ;
   assign nova_core$mem_master_rvalid = fabric_2x3$v_from_masters_2_rvalid ;
   assign nova_core$mem_master_wready = fabric_2x3$v_from_masters_2_wready ;
+  assign nova_core$trace_data_in_put = cpu$trace_data_out_get ;
+  assign nova_core$EN_trace_data_in_put = CAN_FIRE_RL_rl_connect_trace ;
 
   // submodule plic
   assign plic$axi4_slave_araddr = fabric_2x3$v_to_slaves_2_araddr ;
@@ -2642,6 +2706,12 @@ module mkCore(CLK,
   assign soc_map$m_is_mem_addr_addr = 64'h0 ;
   assign soc_map$m_is_near_mem_IO_addr_addr = 64'h0 ;
 
+  // submodule tv_encode
+  assign tv_encode$trace_data_in_put = cpu$trace_data_out_get ;
+  assign tv_encode$EN_reset = 1'b0 ;
+  assign tv_encode$EN_trace_data_in_put = CAN_FIRE_RL_rl_connect_trace ;
+  assign tv_encode$EN_tv_vb_out_get = EN_tv_verifier_info_get_get ;
+
   // handling of system tasks
 
   // synopsys translate_off
@@ -2651,23 +2721,23 @@ module mkCore(CLK,
     if (RST_N != `BSV_RESET_VALUE)
       if (WILL_FIRE_RL_rl_cpu_hart0_reset_from_soc_start)
 	begin
-	  v__h4933 = $stime;
+	  v__h4987 = $stime;
 	  #0;
 	end
-    v__h4927 = v__h4933 / 32'd10;
+    v__h4981 = v__h4987 / 32'd10;
     if (RST_N != `BSV_RESET_VALUE)
       if (WILL_FIRE_RL_rl_cpu_hart0_reset_from_soc_start)
-	$display("%0d: Core.rl_cpu_hart0_reset_from_soc_start", v__h4927);
+	$display("%0d: Core.rl_cpu_hart0_reset_from_soc_start", v__h4981);
     if (RST_N != `BSV_RESET_VALUE)
       if (WILL_FIRE_RL_rl_cpu_hart0_reset_complete)
 	begin
-	  v__h5149 = $stime;
+	  v__h5203 = $stime;
 	  #0;
 	end
-    v__h5143 = v__h5149 / 32'd10;
+    v__h5197 = v__h5203 / 32'd10;
     if (RST_N != `BSV_RESET_VALUE)
       if (WILL_FIRE_RL_rl_cpu_hart0_reset_complete)
-	$display("%0d: Core.rl_cpu_hart0_reset_complete", v__h5143);
+	$display("%0d: Core.rl_cpu_hart0_reset_complete", v__h5197);
   end
   // synopsys translate_on
 endmodule  // mkCore

@@ -5,6 +5,8 @@
 // Ports:
 // Name                         I/O  size props
 // RDY_set_verbosity              O     1 const
+// tv_verifier_info_get_get       O   608 reg
+// RDY_tv_verifier_info_get_get   O     1 reg
 // to_raw_mem_request_get         O   353
 // RDY_to_raw_mem_request_get     O     1
 // RDY_to_raw_mem_response_put    O     1
@@ -25,6 +27,7 @@
 // EN_to_raw_mem_response_put     I     1
 // EN_put_from_console_put        I     1
 // EN_set_watch_tohost            I     1
+// EN_tv_verifier_info_get_get    I     1
 // EN_to_raw_mem_request_get      I     1
 // EN_get_to_console_get          I     1
 //
@@ -52,6 +55,10 @@ module mkSoC_Top(CLK,
 		 set_verbosity_logdelay,
 		 EN_set_verbosity,
 		 RDY_set_verbosity,
+
+		 EN_tv_verifier_info_get_get,
+		 tv_verifier_info_get_get,
+		 RDY_tv_verifier_info_get_get,
 
 		 EN_to_raw_mem_request_get,
 		 to_raw_mem_request_get,
@@ -84,6 +91,11 @@ module mkSoC_Top(CLK,
   input  EN_set_verbosity;
   output RDY_set_verbosity;
 
+  // actionvalue method tv_verifier_info_get_get
+  input  EN_tv_verifier_info_get_get;
+  output [607 : 0] tv_verifier_info_get_get;
+  output RDY_tv_verifier_info_get_get;
+
   // actionvalue method to_raw_mem_request_get
   input  EN_to_raw_mem_request_get;
   output [352 : 0] to_raw_mem_request_get;
@@ -114,6 +126,7 @@ module mkSoC_Top(CLK,
   output RDY_set_watch_tohost;
 
   // signals for module outputs
+  wire [607 : 0] tv_verifier_info_get_get;
   wire [352 : 0] to_raw_mem_request_get;
   wire [7 : 0] get_to_console_get, status;
   wire RDY_get_to_console_get,
@@ -121,7 +134,8 @@ module mkSoC_Top(CLK,
        RDY_set_verbosity,
        RDY_set_watch_tohost,
        RDY_to_raw_mem_request_get,
-       RDY_to_raw_mem_response_put;
+       RDY_to_raw_mem_response_put,
+       RDY_tv_verifier_info_get_get;
 
   // register rg_state
   reg [1 : 0] rg_state;
@@ -254,6 +268,7 @@ module mkSoC_Top(CLK,
        boot_rom_axi4_deburster$to_slave_wvalid;
 
   // ports of submodule core
+  wire [607 : 0] core$tv_verifier_info_get_get;
   wire [63 : 0] core$cpu_dmem_master_araddr,
 		core$cpu_dmem_master_awaddr,
 		core$cpu_dmem_master_rdata,
@@ -309,8 +324,10 @@ module mkSoC_Top(CLK,
   wire core$EN_cpu_reset_server_request_put,
        core$EN_cpu_reset_server_response_get,
        core$EN_set_verbosity,
+       core$EN_tv_verifier_info_get_get,
        core$RDY_cpu_reset_server_request_put,
        core$RDY_cpu_reset_server_response_get,
+       core$RDY_tv_verifier_info_get_get,
        core$core_external_interrupt_sources_0_m_interrupt_req_set_not_clear,
        core$core_external_interrupt_sources_10_m_interrupt_req_set_not_clear,
        core$core_external_interrupt_sources_11_m_interrupt_req_set_not_clear,
@@ -810,6 +827,7 @@ module mkSoC_Top(CLK,
        CAN_FIRE_set_watch_tohost,
        CAN_FIRE_to_raw_mem_request_get,
        CAN_FIRE_to_raw_mem_response_put,
+       CAN_FIRE_tv_verifier_info_get_get,
        WILL_FIRE_RL_rl_connect_external_interrupt_requests,
        WILL_FIRE_RL_rl_rd_addr_channel,
        WILL_FIRE_RL_rl_rd_addr_channel_1,
@@ -853,20 +871,28 @@ module mkSoC_Top(CLK,
        WILL_FIRE_set_verbosity,
        WILL_FIRE_set_watch_tohost,
        WILL_FIRE_to_raw_mem_request_get,
-       WILL_FIRE_to_raw_mem_response_put;
+       WILL_FIRE_to_raw_mem_response_put,
+       WILL_FIRE_tv_verifier_info_get_get;
 
   // declarations used by system tasks
   // synopsys translate_off
-  reg [31 : 0] v__h10678;
-  reg [31 : 0] v__h10932;
-  reg [31 : 0] v__h10672;
-  reg [31 : 0] v__h10926;
+  reg [31 : 0] v__h10687;
+  reg [31 : 0] v__h10941;
+  reg [31 : 0] v__h10681;
+  reg [31 : 0] v__h10935;
   // synopsys translate_on
 
   // action method set_verbosity
   assign RDY_set_verbosity = 1'd1 ;
   assign CAN_FIRE_set_verbosity = 1'd1 ;
   assign WILL_FIRE_set_verbosity = EN_set_verbosity ;
+
+  // actionvalue method tv_verifier_info_get_get
+  assign tv_verifier_info_get_get = core$tv_verifier_info_get_get ;
+  assign RDY_tv_verifier_info_get_get = core$RDY_tv_verifier_info_get_get ;
+  assign CAN_FIRE_tv_verifier_info_get_get =
+	     core$RDY_tv_verifier_info_get_get ;
+  assign WILL_FIRE_tv_verifier_info_get_get = EN_tv_verifier_info_get_get ;
 
   // actionvalue method to_raw_mem_request_get
   assign to_raw_mem_request_get = mem0_controller$to_raw_mem_request_get ;
@@ -1081,6 +1107,7 @@ module mkSoC_Top(CLK,
 	      .EN_set_verbosity(core$EN_set_verbosity),
 	      .EN_cpu_reset_server_request_put(core$EN_cpu_reset_server_request_put),
 	      .EN_cpu_reset_server_response_get(core$EN_cpu_reset_server_response_get),
+	      .EN_tv_verifier_info_get_get(core$EN_tv_verifier_info_get_get),
 	      .RDY_set_verbosity(),
 	      .RDY_cpu_reset_server_request_put(core$RDY_cpu_reset_server_request_put),
 	      .cpu_reset_server_response_get(),
@@ -1140,7 +1167,9 @@ module mkSoC_Top(CLK,
 	      .cpu_dmem_master_arprot(core$cpu_dmem_master_arprot),
 	      .cpu_dmem_master_arqos(core$cpu_dmem_master_arqos),
 	      .cpu_dmem_master_arregion(core$cpu_dmem_master_arregion),
-	      .cpu_dmem_master_rready(core$cpu_dmem_master_rready));
+	      .cpu_dmem_master_rready(core$cpu_dmem_master_rready),
+	      .tv_verifier_info_get_get(core$tv_verifier_info_get_get),
+	      .RDY_tv_verifier_info_get_get(core$RDY_tv_verifier_info_get_get));
 
   // submodule fabric
   mkFabric_AXI4 fabric(.CLK(CLK),
@@ -1918,6 +1947,7 @@ module mkSoC_Top(CLK,
 	     CAN_FIRE_RL_rl_reset_start_initial ;
   assign core$EN_cpu_reset_server_response_get =
 	     CAN_FIRE_RL_rl_reset_complete_initial ;
+  assign core$EN_tv_verifier_info_get_get = EN_tv_verifier_info_get_get ;
 
   // submodule fabric
   assign fabric$set_verbosity_verbosity = 4'h0 ;
@@ -2270,23 +2300,23 @@ module mkSoC_Top(CLK,
     if (RST_N != `BSV_RESET_VALUE)
       if (WILL_FIRE_RL_rl_reset_start_initial)
 	begin
-	  v__h10678 = $stime;
+	  v__h10687 = $stime;
 	  #0;
 	end
-    v__h10672 = v__h10678 / 32'd10;
+    v__h10681 = v__h10687 / 32'd10;
     if (RST_N != `BSV_RESET_VALUE)
       if (WILL_FIRE_RL_rl_reset_start_initial)
-	$display("%0d:%m.rl_reset_start_initial ...", v__h10672);
+	$display("%0d:%m.rl_reset_start_initial ...", v__h10681);
     if (RST_N != `BSV_RESET_VALUE)
       if (WILL_FIRE_RL_rl_reset_complete_initial)
 	begin
-	  v__h10932 = $stime;
+	  v__h10941 = $stime;
 	  #0;
 	end
-    v__h10926 = v__h10932 / 32'd10;
+    v__h10935 = v__h10941 / 32'd10;
     if (RST_N != `BSV_RESET_VALUE)
       if (WILL_FIRE_RL_rl_reset_complete_initial)
-	$display("%0d:%m.rl_reset_complete_initial", v__h10926);
+	$display("%0d:%m.rl_reset_complete_initial", v__h10935);
   end
   // synopsys translate_on
 endmodule  // mkSoC_Top
