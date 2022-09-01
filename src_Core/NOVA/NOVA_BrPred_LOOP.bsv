@@ -73,6 +73,7 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
                             map_mgr   <- mkFreeQueMgr;
 
   FIFOF #(BPC_LOOP_RSP_t)                 rsp_agent   <- mkPipelineFIFOF;
+  FIFOR #(BPC_LOOP_RSP_t)                 loop_rsp_rd <- mkFIFOR(rsp_agent);
   RWire#(BPC_LOOP_CMT_t)                  cmt_wire    <- mkRWireSBR;
 
   RWire#(LOOP_MAP_ID_t)                   new_map_id_w      <- mkRWireSBR;
@@ -293,7 +294,8 @@ module mkNOVA_BPC_LOOP (NOVA_BPC_LOOP_IFC);
 
   // ----------------
   // Interfaces
-  interface lkup_server = toGPServer(req_put, rsp_agent);
+  interface lkup_req    = toPut(req_put);
+  interface lkup_rsp    = loop_rsp_rd;
   interface alloc       = toPut(alloc_put);
   interface cmt         = toPut(cmt_put);
 endmodule: mkNOVA_BPC_LOOP

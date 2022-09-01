@@ -5,6 +5,7 @@ import GetPut       :: *;
 import Vector       :: *;
 import RegFile      :: *;
 import LFSR         :: *;
+import FIFOF        :: *;
 
 import ISA_Decls       :: *;
 import NOVA_Decls      :: *;
@@ -444,5 +445,44 @@ function Tuple2#(Vector#(2, IFetch_HAddr_t), IFetch_LAddr_t) split_banked_pc(PC_
   pchs[0] = pch + zeroExtend(msb(pcl));
   return tuple2(pchs, pcl);
 endfunction
+
+interface FIFOR#(type dt);
+  method Action enable(Bool ena);
+  method Action deq();
+  method dt first();
+endinterface
+
+module mkFIFOR#(parameter FIFOF#(a_type) ff) (FIFOR#(a_type))
+  provisos (Bits#(a_type, sizea));
+  RWire#(a_type) i_wire <- mkRWire;
+  Wire#(Bool)   i_enable <- mkWire;
+  Wire#(a_type) i_res <- mkWire;
+
+  rule rl_rd_fifo if (i_enable);
+    let res = ff.first();
+    i_wire.wset(res);
+  endrule
+
+  rule rl_get_res if (!i_enable || isValid(i_wire.wget));
+    a_type res = unpack(fromInteger(0));
+    if (i_enable)
+      i_res <= i_wire.wget().Valid;
+    else
+      i_res <= res;
+  endrule
+
+  method a_type first();
+    return i_res;
+  endmethod
+
+  method Action deq();
+    if (i_enable)
+      ff.deq();
+  endmethod
+
+  method Action enable(Bool ena);
+    i_enable <= ena;
+  endmethod
+endmodule
 
 endpackage

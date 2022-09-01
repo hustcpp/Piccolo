@@ -6,6 +6,7 @@ package NOVA_BrPredCplx_IFC;
 
 import GetPut       :: *;
 import ClientServer :: *;
+import FIFOF        :: *;
 
 import Vector::*;
 
@@ -14,6 +15,7 @@ import Vector::*;
 
 import ISA_Decls       :: *;
 import NOVA_Decls      :: *;
+import NOVA_Utils      :: *;
 
 // ================================================================
 // Type defines
@@ -268,7 +270,8 @@ interface NOVA_BPC_GNRL_BPP_IFC#(numeric type odly,
                                  type rsp_t, 
                                  type updt_req_t, 
                                  type updt_rsp_t);
-  interface Server#(req_t, rsp_t) lkup_server;
+  interface Put#(req_t) lkup_req;
+  interface FIFOF#(rsp_t) lkup_rsp;
   interface Server#(updt_req_t, updt_rsp_t) updt_server;
   interface Put#(BPC_BPP_LKUP_REQ_t) pre_lkup_put;
 endinterface
@@ -282,9 +285,10 @@ typedef NOVA_BPC_GNRL_BPP_IFC#(1, 0, NOVA_CFG_L1_BPP_ENTRIES, BPC_L1_BPP_REQ_t, 
 typedef NOVA_BPC_GNRL_BPP_IFC#(2, 0, NOVA_CFG_L2_BPP_ENTRIES, BPC_L2_BPP_REQ_t, BPC_L2_BPP_RSP_t, BPC_BPP_UPDT_REQ_t, BPC_BPP_UPDT_RSP_t) NOVA_BPC_L2_BPP_IFC;
 
 interface NOVA_BPC_SPL_IFC#(type req_t, type rsp_t, type alloc_t, type cmt_t);
-  interface Server#(req_t, rsp_t) lkup_server;
-  interface Put#(alloc_t) alloc;
-  interface Put#(cmt_t)   cmt;
+  interface Put#(req_t)    lkup_req;
+  interface FIFOR #(rsp_t) lkup_rsp;
+  interface Put#(alloc_t)  alloc;
+  interface Put#(cmt_t)    cmt;
 endinterface
 
 typedef NOVA_BPC_SPL_IFC#(BPC_SPLBP_REQ_t, BPC_RAS_RSP_t  , BPC_SPLBP_ALLOC_t, BPC_RAS_CMT_t  ) NOVA_BPC_RAS_IFC;
@@ -306,9 +310,13 @@ interface NOVA_BPC_CTRL_Int_IFC;
   interface Server#(BPC_BTB_REQ_t   , BPC_L1_BTB_RSP_t) l1_btb;
   interface Server#(BPC_BTB_REQ_t   , BPC_L2_BTB_RSP_t) l2_btb;
 
-  interface Server#(BPC_L0_BPP_REQ_t, BPC_L0_BPP_RSP_t) l0_bpp;
-  interface Server#(BPC_L1_BPP_REQ_t, BPC_L1_BPP_RSP_t) l1_bpp;
-  interface Server#(BPC_L2_BPP_REQ_t, BPC_L2_BPP_RSP_t) l2_bpp;
+  interface Put#(BPC_L0_BPP_REQ_t) l0_bpp_req;
+  interface Put#(BPC_L1_BPP_REQ_t) l1_bpp_req;
+  interface Put#(BPC_L2_BPP_REQ_t) l2_bpp_req;
+
+  interface FIFOF#(BPC_L0_BPP_RSP_t) l0_bpp_rsp;
+  interface FIFOF#(BPC_L1_BPP_RSP_t) l1_bpp_rsp;
+  interface FIFOF#(BPC_L2_BPP_RSP_t) l2_bpp_rsp;
 
   interface Server#(BPC_L0_BTB_UPDT_REQ_t, BPC_L0_BTB_UPDT_RSP_t) l0_btb_updt;
   interface Server#(BPC_L1_BTB_UPDT_REQ_t, BPC_L1_BTB_UPDT_RSP_t) l1_btb_updt;
@@ -322,15 +330,18 @@ interface NOVA_BPC_CTRL_Int_IFC;
   interface Put#(BPC_BPP_LKUP_REQ_t) l1_bpp_pre_lkup;
   interface Put#(BPC_BPP_LKUP_REQ_t) l2_bpp_pre_lkup;
 
-  interface Server#(BPC_SPLBP_REQ_t, BPC_RAS_RSP_t)      ras_lkup;
+  interface Put#(BPC_SPLBP_REQ_t)                        ras_lkup_req;
+  interface FIFOR#(BPC_RAS_RSP_t)                        ras_lkup_rsp;
   interface Put#(BPC_SPLBP_ALLOC_t)                      ras_alloc;
   interface Put#(BPC_RAS_CMT_t)                          ras_cmt;
 
-  interface Server#(BPC_SPLBP_REQ_t, BPC_ITA_RSP_t)      ita_lkup;
+  interface Put#(BPC_SPLBP_REQ_t)                        ita_lkup_req;
+  interface FIFOR#(BPC_ITA_RSP_t)                        ita_lkup_rsp;
   interface Put#(BPC_SPLBP_ALLOC_t)                      ita_alloc;
   interface Put#(BPC_ITA_CMT_t)                          ita_cmt;
 
-  interface Server#(BPC_SPLBP_REQ_t, BPC_LOOP_RSP_t)     loop_lkup;
+  interface Put#(BPC_SPLBP_REQ_t)                        loop_lkup_req;
+  interface FIFOR#(BPC_LOOP_RSP_t)                       loop_lkup_rsp;
   interface Put#(BPC_SPLBP_ALLOC_t)                      loop_alloc;
   interface Put#(BPC_LOOP_CMT_t)                         loop_cmt;
 endinterface

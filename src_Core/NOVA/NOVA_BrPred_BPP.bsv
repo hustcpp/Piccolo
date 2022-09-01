@@ -215,7 +215,7 @@ module mkNOVA_BPC_GNRL_BPP (NOVA_BPC_GNRL_BPP_IFC#(odly, impl, bpp_entries, req_
 
 if (valueOf(odly) == 0)
 begin
-  Wire#(rsp_t)           rsp_wire      <- mkWire;
+  FIFOF#(rsp_t) rsp_fifo      <- mkBypassFIFOF;
 
   let prereq_put =
   (interface Put#(req_t);
@@ -231,14 +231,7 @@ begin
     method Action put(req_t val);
       let rspv = fn_handle_lkup(val, pht_wire, pcl_wire);
       rspv.bp_sig = idx_wire;
-      rsp_wire <= rspv;
-    endmethod
-  endinterface);
-
-  let rsp_get = 
-  (interface Get#(rsp_t);
-    method ActionValue#(rsp_t) get();
-      return rsp_wire;
+      rsp_fifo.enq(rspv);
     endmethod
   endinterface);
 
@@ -246,7 +239,8 @@ begin
   // Interfaces
   interface updt_server  = toGPServer(updt_req_put, updt_rsp_get);
   interface pre_lkup_put = toPut(prereq_put);
-  interface lkup_server  = toGPServer(req_put, rsp_get);
+  interface lkup_req     = toPut(req_put);
+  interface lkup_rsp     = rsp_fifo;
 end else begin
   Vector#(odly, FIFOF#(BPP_STAGE_DATA_t#(bpp_sig_t)))
                 pht_rd_stages      <- replicateM(mkPipelineFIFOF); 
@@ -298,7 +292,8 @@ end else begin
   // Interfaces
   interface updt_server  = toGPServer(updt_req_put, updt_rsp_get);
   interface pre_lkup_put = toPut(prereq_put);
-  interface lkup_server  = toGPServer(req_put, rsp_fifo);
+  interface lkup_req     = toPut(req_put);
+  interface lkup_rsp     = rsp_fifo;
 end
   // ----------------
   // method

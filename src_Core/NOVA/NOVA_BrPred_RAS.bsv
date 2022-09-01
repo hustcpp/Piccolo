@@ -59,6 +59,7 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
   Que#(NOVA_CFG_RAS_CMT_ENTRIES, RAS_PID_t) cmt_ras   <- mkSizedQue;
 
   FIFOF #(BPC_RAS_RSP_t)                  rsp_agent   <- mkPipelineFIFOF;
+  FIFOR #(BPC_RAS_RSP_t)                  ras_rsp_rd  <- mkFIFOR(rsp_agent);
   
   Wire#(RAS_PID_t)                        retire_pid   <- mkWire;
   RWire#(BPC_RAS_CMT_t)                   cmt_wire     <- mkRWireSBR;
@@ -198,7 +199,8 @@ module mkNOVA_BPC_RAS (NOVA_BPC_RAS_IFC);
 
   // ----------------
   // Interfaces
-  interface lkup_server = toGPServer(req_put, rsp_agent);
+  interface lkup_req    = toPut(req_put);
+  interface lkup_rsp    = ras_rsp_rd;
   interface alloc       = toPut(alloc_put);
   interface cmt         = toPut(cmt_put);
 endmodule: mkNOVA_BPC_RAS

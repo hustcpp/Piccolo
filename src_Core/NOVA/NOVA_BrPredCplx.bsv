@@ -68,9 +68,13 @@ module mkNOVA_BrPredCplx (NOVA_BrPredCplx_IFC);
     interface l1_btb     = l1_btb.lkup_server;
     interface l2_btb     = l2_btb.lkup_server;
 
-    interface l0_bpp     = l0_bpp.lkup_server;
-    interface l1_bpp     = l1_bpp.lkup_server;
-    interface l2_bpp     = l2_bpp.lkup_server;
+    interface l0_bpp_req  = l0_bpp.lkup_req;
+    interface l1_bpp_req  = l1_bpp.lkup_req;
+    interface l2_bpp_req  = l2_bpp.lkup_req;
+
+    interface l0_bpp_rsp  = l0_bpp.lkup_rsp;
+    interface l1_bpp_rsp  = l1_bpp.lkup_rsp;
+    interface l2_bpp_rsp  = l2_bpp.lkup_rsp;
 
     interface l0_btb_updt = l0_btb.updt_server;
     interface l1_btb_updt = l1_btb.updt_server;
@@ -84,17 +88,20 @@ module mkNOVA_BrPredCplx (NOVA_BrPredCplx_IFC);
     interface l1_bpp_pre_lkup = l1_bpp.pre_lkup_put;
     interface l2_bpp_pre_lkup = l2_bpp.pre_lkup_put;
 
-    interface ita_lkup   =  ita.lkup_server;
-    interface ita_alloc  =  ita.alloc;
-    interface ita_cmt    =  ita.cmt;
+    interface ita_lkup_req =  ita.lkup_req;
+    interface ita_lkup_rsp =  ita.lkup_rsp;
+    interface ita_alloc    =  ita.alloc;
+    interface ita_cmt      =  ita.cmt;
 
-    interface ras_lkup   =  ras.lkup_server;
-    interface ras_alloc  =  ras.alloc;
-    interface ras_cmt    =  ras.cmt;
+    interface ras_lkup_req =  ras.lkup_req;
+    interface ras_lkup_rsp =  ras.lkup_rsp;
+    interface ras_alloc    =  ras.alloc;
+    interface ras_cmt      =  ras.cmt;
 
-    interface loop_lkup  =  loop.lkup_server;
-    interface loop_alloc =  loop.alloc;
-    interface loop_cmt   =  loop.cmt;
+    interface loop_lkup_req =  loop.lkup_req;
+    interface loop_lkup_rsp =  loop.lkup_rsp;
+    interface loop_alloc    =  loop.alloc;
+    interface loop_cmt      =  loop.cmt;
   endinterface);
 
   NOVA_BPC_CTRL_IFC ctrl   <- mkNOVA_BPC_CTRL(ctrl_intf);

@@ -45,6 +45,7 @@ module mkNOVA_BPC_ITA (NOVA_BPC_ITA_IFC);
                             cache <- mkSpCache;
 
   FIFOF #(BPC_ITA_RSP_t)                  rsp_agent   <- mkPipelineFIFOF;
+  FIFOR #(BPC_ITA_RSP_t)                  ita_rsp_rd  <- mkFIFOR(rsp_agent);
 
   // ----------------
   // States
@@ -84,7 +85,8 @@ module mkNOVA_BPC_ITA (NOVA_BPC_ITA_IFC);
 
   // ----------------
   // Interfaces
-  interface lkup_server = toGPServer(req_put, rsp_agent);
+  interface lkup_req    = toPut(req_put);
+  interface lkup_rsp    = ita_rsp_rd;
   interface alloc       = toPut(alloc_put);
   interface cmt         = toPut(cmt_put);
 endmodule: mkNOVA_BPC_ITA
